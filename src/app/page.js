@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AiModalPopup from '@/components/AiModalPopup';
@@ -90,6 +90,7 @@ export default function HomePage() {
   };
 
   // State untuk Sona AI Chat
+  const chatBottomRef = useRef(null);
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -106,6 +107,13 @@ export default function HomePage() {
       { sender: 'ai', text: 'Halo! Aku Sona AI, sahabat pendengar musikmu. Ceritakan apa yang sedang kamu rasakan atau alami hari ini. Aku siap mendengarkan!' }
     ];
   });
+
+  // Auto-scroll ke pesan paling bawah
+  useEffect(() => {
+    if (activeNavTab === 'chatbot' || chatMessages.length > 0) {
+      chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages, activeNavTab]);
 
   // Simpan chatMessages ke sessionStorage agar tidak hilang saat navigasi tab/pindah halaman di sesi yang sama
   useEffect(() => {
@@ -982,7 +990,7 @@ export default function HomePage() {
       {activeNavTab === 'chatbot' && (
         <div className="flex-1 max-w-md md:max-w-2xl mx-auto w-full px-3 md:px-4 pt-3 flex flex-col h-[calc(100vh-140px)]">
           {/* Chat Header */}
-          <div className="p-3 bg-[#181818] border border-slate-800 rounded-t-2xl flex items-center justify-between gap-2 shadow-lg">
+          <div className="p-3 bg-[#181818] border border-slate-800 rounded-t-2xl flex items-center justify-between gap-2 shadow-lg shrink-0">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow flex-shrink-0">
                 <Bot className="w-5 h-5" />
@@ -1018,7 +1026,7 @@ export default function HomePage() {
           </div>
 
           {/* Chat Messages Body */}
-          <div className="flex-1 p-3 md:p-4 bg-[#121212] border-x border-slate-800/80 overflow-y-auto space-y-3 text-xs">
+          <div className="flex-1 p-3 md:p-4 bg-[#121212] border-x border-slate-800/80 overflow-y-auto space-y-3 text-xs min-h-0">
             {chatMessages.map((msg, i) => (
               <div
                 key={i}
@@ -1041,22 +1049,21 @@ export default function HomePage() {
                         setPlaylist(msg.playlist);
                         setCurrentSong(msg.playlist[0]);
                         setIsPlaying(true);
-                        showToast(`🎵 Memutar Gradasi Musik (${msg.detectedEmotion || 'Terdeteksi'})`);
+                        showToast(`🎵 Memutar Gradasi Musik`);
                       }}
                       className="mt-2 w-full py-2 px-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[11px] rounded-xl transition shadow flex items-center justify-center gap-1.5"
                     >
-                      <Play className="w-3.5 h-3.5 fill-white" /> Putar Gradasi Musik ( <span className="capitalize">{msg.detectedEmotion || 'Tenang'}</span> )
+                      <Play className="w-3.5 h-3.5 fill-white" /> Putar Gradasi Musik
                     </button>
                   )}
                 </div>
               </div>
             ))}
+            <div ref={chatBottomRef} />
           </div>
 
-          {/* Chat Form Docked */}
-
-          {/* Chat Form Docked */}
-          <form onSubmit={handleSendChat} className="p-3 bg-[#181818] border border-slate-800 rounded-b-2xl flex gap-2">
+          {/* Chat Form Docked (Fixed Bottom) */}
+          <form onSubmit={handleSendChat} className="p-3 bg-[#181818] border border-slate-800 rounded-b-2xl flex gap-2 shrink-0">
             <input
               type="text"
               value={chatInput}
@@ -1066,7 +1073,7 @@ export default function HomePage() {
             />
             <button
               type="submit"
-              className="px-4 py-2.5 bg-[#1DB954] hover:bg-[#1aa34a] text-black font-bold text-xs rounded-xl transition shadow flex items-center gap-1"
+              className="px-4 py-2.5 bg-[#1DB954] hover:bg-[#1aa34a] text-black font-bold text-xs rounded-xl transition shadow flex items-center gap-1 shrink-0"
             >
               <Send className="w-3.5 h-3.5" />
             </button>
