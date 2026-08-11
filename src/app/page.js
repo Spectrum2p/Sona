@@ -26,7 +26,17 @@ import {
   Zap,
   Flame,
   BarChart3,
-  CheckCircle2
+  CheckCircle2,
+  LifeBuoy,
+  Info,
+  PhoneCall,
+  ShieldCheck,
+  AlertTriangle,
+  Smile,
+  X,
+  Check,
+  HeartPulse,
+  RefreshCw
 } from 'lucide-react';
 
 export default function HomePage() {
@@ -69,6 +79,10 @@ export default function HomePage() {
   // Modal Bikin Playlist Baru
   const [isCreatePlaylistOpen, setIsCreatePlaylistOpen] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
+
+  // Modal Help Center & Edu Sona
+  const [isHelpCenterOpen, setIsHelpCenterOpen] = useState(false);
+  const [isEduModalOpen, setIsEduModalOpen] = useState(false);
 
   const showToast = (msg) => {
     setToastMessage(msg);
@@ -334,17 +348,14 @@ export default function HomePage() {
     }
   };
 
-  const handleSendChat = async (e) => {
-    e.preventDefault();
-    if (!chatInput.trim()) return;
+  const sendDirectChatMessage = async (userText) => {
+    if (!userText || !userText.trim()) return;
 
-    const userText = chatInput;
     setChatMessages(prev => [
       ...prev, 
       { sender: 'user', text: userText },
       { sender: 'ai', text: 'Sona AI sedang mencerna ceritamu...', isLoading: true }
     ]);
-    setChatInput('');
 
     try {
       const res = await fetch('/api/chat', {
@@ -388,6 +399,15 @@ export default function HomePage() {
         return [...filtered, { sender: 'ai', text: 'Maaf, terjadi kendala koneksi ke Sona AI. Tetap nikmati musik yang ada ya!' }];
       });
     }
+  };
+
+  const handleSendChat = async (e) => {
+    e.preventDefault();
+    if (!chatInput.trim()) return;
+
+    const userText = chatInput;
+    setChatInput('');
+    await sendDirectChatMessage(userText);
   };
 
   const handleSelectNavTab = (tab) => {
@@ -960,28 +980,45 @@ export default function HomePage() {
       {/* 3. TAB CHATBOT (SONA AI) */}
       {/* ========================================================= */}
       {activeNavTab === 'chatbot' && (
-        <div className="flex-1 max-w-md md:max-w-2xl mx-auto w-full px-4 pt-3 flex flex-col h-[calc(100vh-140px)]">
+        <div className="flex-1 max-w-md md:max-w-2xl mx-auto w-full px-3 md:px-4 pt-3 flex flex-col h-[calc(100vh-140px)]">
           {/* Chat Header */}
-          <div className="p-3 bg-[#181818] border border-slate-800 rounded-t-2xl flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow">
+          <div className="p-3 bg-[#181818] border border-slate-800 rounded-t-2xl flex items-center justify-between gap-2 shadow-lg">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow flex-shrink-0">
                 <Bot className="w-5 h-5" />
               </div>
-              <div>
-                <h3 className="text-sm font-bold text-white">Sona AI Companion</h3>
+              <div className="min-w-0">
+                <h3 className="text-sm font-bold text-white truncate">Sona AI Companion</h3>
                 <p className="text-[10px] text-[#1DB954] flex items-center gap-1 font-semibold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#1DB954] animate-pulse"></span> Online
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#1DB954] animate-pulse"></span> Online • Regulasi Mood & Psikologi Musik
                 </p>
               </div>
             </div>
 
-            <span className="text-[10px] text-slate-400 bg-slate-800 px-2.5 py-1 rounded-full border border-slate-700">
-              Psikologi Musik
-            </span>
+            {/* Header Action Buttons */}
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <button
+                onClick={() => setIsHelpCenterOpen(true)}
+                title="Help Center & Hotline Bantuan Psikolog"
+                className="px-2.5 py-1 bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-300 text-[10px] font-bold rounded-xl transition flex items-center gap-1"
+              >
+                <LifeBuoy className="w-3.5 h-3.5 text-rose-400" />
+                <span className="hidden sm:inline">Help Center</span>
+              </button>
+
+              <button
+                onClick={() => setIsEduModalOpen(true)}
+                title="Info Lanjut & Panduan Sona AI"
+                className="p-1.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-slate-700 rounded-xl transition flex items-center gap-1 text-[11px] px-2.5 py-1"
+              >
+                <Info className="w-4 h-4 text-indigo-400" />
+                <span className="font-semibold text-indigo-200">Info Lanjut</span>
+              </button>
+            </div>
           </div>
 
           {/* Chat Messages Body */}
-          <div className="flex-1 p-4 bg-[#121212] border-x border-slate-800/80 overflow-y-auto space-y-3 text-xs">
+          <div className="flex-1 p-3 md:p-4 bg-[#121212] border-x border-slate-800/80 overflow-y-auto space-y-3 text-xs">
             {chatMessages.map((msg, i) => (
               <div
                 key={i}
@@ -994,10 +1031,10 @@ export default function HomePage() {
                       : 'bg-[#181818] border border-slate-800 text-slate-200 rounded-tl-none shadow-md'
                   }`}
                 >
-                  <p>{msg.text}</p>
+                  <p className="whitespace-pre-line">{msg.text}</p>
 
-                  {/* Badge Emosi Terdeteksi */}
-                  {msg.sender === 'ai' && msg.detectedEmotion && (
+                  {/* Badge Emosi Terdeteksi (HANYA MUNCUL KETIKA ADA PLAYLIST) */}
+                  {msg.sender === 'ai' && msg.playlist && msg.playlist.length > 0 && msg.detectedEmotion && (
                     <div className="flex items-center gap-1.5 pt-1">
                       <span className="text-[11px] font-semibold text-indigo-300 bg-indigo-950/80 border border-indigo-700/50 px-2.5 py-1 rounded-lg flex items-center gap-1">
                         🧠 Emosi Teranalisis: <span className="text-emerald-400 font-bold capitalize">{msg.detectedEmotion}</span>
@@ -1026,12 +1063,14 @@ export default function HomePage() {
           </div>
 
           {/* Chat Form Docked */}
+
+          {/* Chat Form Docked */}
           <form onSubmit={handleSendChat} className="p-3 bg-[#181818] border border-slate-800 rounded-b-2xl flex gap-2">
             <input
               type="text"
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
-              placeholder="Ceritakan mood atau perasaannya ke Sona AI..."
+              placeholder="Ceritakan mood, pemicu, atau preferensi lagumu ke Sona AI..."
               className="flex-1 bg-[#282828] border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#1DB954] placeholder-slate-400"
             />
             <button
@@ -1128,6 +1167,112 @@ export default function HomePage() {
           </span>
         </button>
       </nav>
+
+      {/* ========================================================= */}
+      {/* MODAL 1: HELP CENTER */}
+      {/* ========================================================= */}
+      {isHelpCenterOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#181818] border border-slate-700 rounded-3xl max-w-md w-full p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2 text-rose-400 font-bold text-sm">
+                <LifeBuoy className="w-5 h-5 text-rose-400" />
+                <h3>Help Center</h3>
+              </div>
+              <button
+                onClick={() => setIsHelpCenterOpen(false)}
+                className="p-1 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs text-slate-300 leading-relaxed">
+              <p className="text-slate-400">
+                Jika kamu memerlukan bantuan atau dukungan lebih lanjut, silakan hubungi kontak bantuan di bawah ini:
+              </p>
+
+              <div className="p-4 bg-[#222] border border-slate-800 rounded-2xl space-y-2">
+                <div className="flex items-center gap-2 font-bold text-white text-sm">
+                  <PhoneCall className="w-4 h-4 text-emerald-400" />
+                  <span>Kontak Bantuan / Hotline</span>
+                </div>
+                <div className="bg-slate-900 border border-slate-700 p-3 rounded-xl flex items-center justify-between">
+                  <span className="text-slate-400 font-medium">Nomor Telepon:</span>
+                  <span className="text-emerald-400 font-mono font-bold text-sm bg-emerald-950/80 px-2.5 py-1 rounded-lg border border-emerald-800">
+                    +62 812-3456-7890
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsHelpCenterOpen(false)}
+              className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl transition"
+            >
+              Tutup Help Center
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL 2: PANDUAN PENGGUNAAN SONA */}
+      {/* ========================================================= */}
+      {isEduModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#181818] border border-slate-700 rounded-3xl max-w-lg w-full p-5 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2 text-indigo-400 font-bold text-sm">
+                <Info className="w-5 h-5" />
+                <h3>Panduan Penggunaan Sona</h3>
+              </div>
+              <button
+                onClick={() => setIsEduModalOpen(false)}
+                className="p-1 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs text-slate-300 leading-relaxed">
+              <div className="p-3.5 bg-indigo-950/40 border border-indigo-800/50 rounded-2xl space-y-1.5">
+                <h4 className="font-bold text-indigo-300 flex items-center gap-2 text-xs">
+                  <BarChart3 className="w-4 h-4 text-emerald-400" /> Pengelompokan 4 Emosi Berbasis Riset
+                </h4>
+                <p className="text-[11px] text-slate-300 leading-normal">
+                  Lagu-lagu di Sonamusic telah dikategorikan menjadi 4 jenis emosi utama yang didapatkan dari survei, yaitu: <strong>Senang</strong>, <strong>Tenang</strong>, <strong>Marah</strong>, dan <strong>Sedih/Cemas</strong>.
+                </p>
+              </div>
+
+              <div className="p-3.5 bg-slate-900 border border-slate-800 rounded-2xl space-y-1.5">
+                <h4 className="font-bold text-emerald-300 flex items-center gap-2 text-xs">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" /> Keamanan &amp; Privasi Chat
+                </h4>
+                <p className="text-[11px] text-slate-300 leading-normal">
+                  Sonamusic memiliki etika privasi chat, dimana Developer tidak mengetahui nama dari masing-masing akun sehingga, keamanan dari chat terjamin.
+                </p>
+              </div>
+
+              <div className="p-3.5 bg-slate-900 border border-slate-800 rounded-2xl space-y-1.5">
+                <h4 className="font-bold text-sky-300 flex items-center gap-2 text-xs">
+                  <HeartPulse className="w-4 h-4 text-sky-400" /> Batasan Musik &amp; Regulasi Mood
+                </h4>
+                <p className="text-[11px] text-slate-300 leading-normal">
+                  Musik dalam Sonamusic membantu pengguna dalam mengelola suasana hati (mood) harian mereka. Namun, untuk pemulihan masalah traumatis yang berat (seperti gejala depresi), pengguna disarankan menggunakan dukungan dari fitur Help Center.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsEduModalOpen(false)}
+              className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition shadow"
+            >
+              Saya Mengerti
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   );
