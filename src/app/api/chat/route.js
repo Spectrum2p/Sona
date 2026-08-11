@@ -308,7 +308,7 @@ export async function POST(request) {
       let response;
       try {
         response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
+          model: 'gemini-3.6-flash',
           contents: prompt,
           config: {
             systemInstruction,
@@ -317,7 +317,7 @@ export async function POST(request) {
         });
       } catch (e2) {
         response = await ai.models.generateContent({
-          model: 'gemini-3.5-flash',
+          model: 'gemini-flash-latest',
           contents: prompt,
           config: {
             systemInstruction,
@@ -331,7 +331,33 @@ export async function POST(request) {
         aiResult = { ...aiResult, ...parsed };
       }
     } catch (modelErr) {
-      console.warn("⚠️ Error Gemini:", modelErr.message);
+      console.warn("⚠️ Error Gemini API call:", modelErr.message);
+
+      // Smart Fallback jika Gemini API bermasalah/API Key tidak valid/belum diset:
+      if (userMessage) {
+        const msgLower = userMessage.toLowerCase();
+        let fallbackEmpathy = `Aku mendengarkanmu, ${profile.fullName}. Ceritakan lebih banyak tentang apa yang kamu rasakan ya.`;
+        let emotion = 'tenang';
+
+        if (/senang|bahagia|gembira|happy|mantap|seru|asik|asik/i.test(msgLower)) {
+          fallbackEmpathy = `Wah, senang sekali mendengarnya, ${profile.fullName}! 🎉 Kebahagiaanmu menular banget. Apa yang bikin harimu begitu menyenangkan hari ini?`;
+          emotion = 'senang';
+        } else if (/sedih|duka|kecewa|tangis|nangis|galau|kecewa|patah/i.test(msgLower)) {
+          fallbackEmpathy = `Peluk hangat untukmu, ${profile.fullName}. Tidak apa-apa merasa sedih. Aku di sini siap mendengarkan seluruh ceritamu kalau kamu mau curhat.`;
+          emotion = 'sedih';
+        } else if (/marah|kesal|jengkel|sebel|emosi|benci|gedeg/i.test(msgLower)) {
+          fallbackEmpathy = `Aku paham rasanya pasti tidak nyaman banget, ${profile.fullName}. Keluarkan saja unek-unekmu di sini, aku siap mendengarkan.`;
+          emotion = 'marah';
+        } else if (/cemas|takut|khawatir|panik|bingung|stres|stress/i.test(msgLower)) {
+          fallbackEmpathy = `Tarik napas perlahan ya, ${profile.fullName}. Kamu tidak sendirian. Coba ceritakan apa yang sedang membebani pikiranmu.`;
+          emotion = 'sedih';
+        } else if (/halo|hai|hey|sore|pagi|malam/i.test(msgLower)) {
+          fallbackEmpathy = `Halo ${profile.fullName}! Ada cerita atau perasaan apa yang ingin kamu bagikan denganku hari ini?`;
+        }
+
+        aiResult.aiResponse = fallbackEmpathy;
+        aiResult.detectedEmotion = emotion;
+      }
     }
 
     // -------------------------------------------------------------------------
