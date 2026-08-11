@@ -1033,15 +1033,6 @@ export default function HomePage() {
                 >
                   <p className="whitespace-pre-line">{msg.text}</p>
 
-                  {/* Badge Emosi Terdeteksi (HANYA MUNCUL KETIKA ADA PLAYLIST) */}
-                  {msg.sender === 'ai' && msg.playlist && msg.playlist.length > 0 && msg.detectedEmotion && (
-                    <div className="flex items-center gap-1.5 pt-1">
-                      <span className="text-[11px] font-semibold text-indigo-300 bg-indigo-950/80 border border-indigo-700/50 px-2.5 py-1 rounded-lg flex items-center gap-1">
-                        🧠 Emosi Teranalisis: <span className="text-emerald-400 font-bold capitalize">{msg.detectedEmotion}</span>
-                      </span>
-                    </div>
-                  )}
-
                   {/* Tombol Muat Gradasi Musik */}
                   {msg.sender === 'ai' && msg.playlist && msg.playlist.length > 0 && (
                     <button
@@ -1050,11 +1041,11 @@ export default function HomePage() {
                         setPlaylist(msg.playlist);
                         setCurrentSong(msg.playlist[0]);
                         setIsPlaying(true);
-                        showToast(`🎵 Memutar Gradasi Musik untuk emosi "${msg.detectedEmotion || 'terdeteksi'}"`);
+                        showToast(`🎵 Memutar Gradasi Musik`);
                       }}
                       className="mt-2 w-full py-2 px-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[11px] rounded-xl transition shadow flex items-center justify-center gap-1.5"
                     >
-                      <Play className="w-3.5 h-3.5 fill-white" /> Putar Gradasi Musik (<span className="capitalize">{msg.detectedEmotion || 'Personal'}</span>)
+                      <Play className="w-3.5 h-3.5 fill-white" /> Putar Gradasi Musik
                     </button>
                   )}
                 </div>
@@ -1200,7 +1191,7 @@ export default function HomePage() {
                 <div className="bg-slate-900 border border-slate-700 p-3 rounded-xl flex items-center justify-between">
                   <span className="text-slate-400 font-medium">Nomor Telepon:</span>
                   <span className="text-emerald-400 font-mono font-bold text-sm bg-emerald-950/80 px-2.5 py-1 rounded-lg border border-emerald-800">
-                    +62 895-3672-99070
+                    +62 812-3456-7890
                   </span>
                 </div>
               </div>
