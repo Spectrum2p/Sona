@@ -143,7 +143,9 @@ export async function POST(request) {
       allSongs = await getSongsFromCSV();
     }
 
-    // Analisis Preferensi Genre, Artis & Audio Feature Baseline dari History Pengguna
+    // -------------------------------------------------------------------------
+    // 🎯 3. ANALYSIS PREFERENSI BASELINE PENGGUNA
+    // -------------------------------------------------------------------------
     const genreFrequency = {};
     const artistFrequency = {};
     let sumValence = 0;
@@ -179,164 +181,106 @@ export async function POST(request) {
       return { ...song, preferenceScore: score };
     });
 
-    // 4. Deteksi Emosi & Ringkasan Niat Chat Pengguna (Berbasis AI Semantik & Context Multimodal)
-    let emosiUser = (detectedEmotion || '').toLowerCase().trim();
-    // Apabila emosiUser belum diisi, biarkan Gemini AI menyimpulkan secara mendalam dari isi percakapan,
-    // nada bicara, konteks cerita, serta riwayat musik/mood tanpa bergantung pada kata kunci kaku.
-
-    const isExplicitMusicRequest = Boolean(userMessage && (
-      /lagu|playlist|musik|rekomendasi|putar|stel|setel|putarkan|gradasi|dengar/i.test(userMessage)
-    ));
-
-    const isAutoTrigger = Boolean(isAutoInitiated);
-
-    const matchEmotion = (songCategory, target) => {
-      if (!songCategory) return false;
-      const cat = songCategory.toLowerCase().trim();
-      const tgt = (target || '').toLowerCase().trim();
-
-      if (['senang', 'happy', 'bahagia', 'gembira', 'semangat', 'bangga', 'antusias', 'ceria'].includes(tgt)) {
-        return ['senang', 'happy'].some(x => cat.includes(x));
-      }
-      if (['tenang', 'relaxed', 'santai', 'damai', 'fokus', 'rileks', 'calm'].includes(tgt)) {
-        return ['tenang', 'relaxed', 'calm'].some(x => cat.includes(x));
-      }
-      if (['marah', 'angry', 'frustrasi', 'frustasi', 'jengkel', 'kesal', 'stres', 'stress'].includes(tgt)) {
-        return ['marah', 'angry', 'sedih'].some(x => cat.includes(x));
-      }
-      if (['cemas', 'fear', 'lelah', 'capek', 'penat', 'khawatir', 'gelisah', 'sedih', 'sad', 'kecewa', 'patah hati'].includes(tgt)) {
-        return ['sedih', 'sad', 'tenang', 'cemas', 'fear'].some(x => cat.includes(x));
-      }
-      return cat.includes(tgt) || tgt.includes(cat);
+    // Helper identifikasi lagu Lokal (Indo/Jawa/Dangdut) vs Barat/English
+    const isIndoGenreOrArtist = (song) => {
+      const g = (song.genre || '').toLowerCase();
+      const a = (song.artist || '').toLowerCase();
+      const t = (song.title || '').toLowerCase();
+      if (/jawa|dangdut|indo|melayu|keroncong/i.test(g)) return true;
+      if (/didi kempot|denny caknan|happy asmara|guyon waton|lyodra|acha septriasa|nidji|fourtwnty|donne maula|ipank|rizky febian|hivi|noah|barasuara|nadin amizah|ndarboy|mahalini|hindia|feast|ndx|pamungkas|tulus|raisa|isyana|fiersa|judika|afgan|rossa|vidi|sheila|dwa|kunto|yura|kahitna|glenn|dewi|armada|dewa|dmasiv|slank|gigi|geisha|padi|ungu|wali|kangen|st12|last child|virgoun|jkt48|tiara|ziva|keisya|febi|nadhif|sal priadi|bernadya|juicy luicy|maliq|batavia|brisia|fuji/i.test(a + " " + t)) return true;
+      return false;
     };
 
-    const sortPersonalized = (songList) => {
-      return songList.sort((a, b) => {
-        const aPlayed = recentPlayedIds.has(a.id) ? -15 : 0;
-        const bPlayed = recentPlayedIds.has(b.id) ? -15 : 0;
-        const scoreA = a.preferenceScore + aPlayed;
-        const scoreB = b.preferenceScore + bPlayed;
-        return scoreB - scoreA;
-      });
-    };
-
-    // 🎯 5. ALGORITMA GRADASI EMOSI & AUDIO FEATURES (ISO PRINCIPLE & MOOD ELEVATION ARC)
-    // Berlaku untuk emosi apapun, disesuaikan dengan preferensi musik pengguna.
-    let playlistRekomendasi = [];
-
-    if (isSpecialCondition && repeatedSong) {
-      // De-eskalasi Repeat Lagu Berlebihan (Kondisi Khusus)
-      const penenang = sortPersonalized(allSongs.filter(s => matchEmotion(s.emotionalCategory, 'tenang') || (s.acousticness || 0) >= 40));
-      const transisi = sortPersonalized(allSongs.filter(s => (s.bpm || 100) >= 80 && (s.bpm || 100) <= 110));
-      const bahagia = sortPersonalized(allSongs.filter(s => matchEmotion(s.emotionalCategory, 'senang')));
-
-      playlistRekomendasi = [
-        ...penenang.slice(0, 3),
-        ...transisi.slice(0, 4),
-        ...bahagia.slice(0, 3)
-      ];
-    } else {
-      // Gradasi Emosi Multitahap ISO Principle untuk emosi apapun
-      const targetEmosiAwal = emosiUser || 'sedih';
-
-      // 1. Validasi Emosi Awal
-      const tahap1_validasi = sortPersonalized(allSongs.filter(s => matchEmotion(s.emotionalCategory, targetEmosiAwal)));
-
-      // 2. Rileks & Penenangan (Acousticness tinggi, BPM 60-85, Energy rendah)
-      const tahap2_rileks = sortPersonalized(allSongs.filter(s => 
-        matchEmotion(s.emotionalCategory, 'tenang') || ((s.energy || 50) <= 55 && (s.bpm || 90) <= 90)
-      ));
-
-      // 3. Elevasi Bertahap Audio Features (BPM & Energy naik bertahap)
-      const tahap3_elevasi = sortPersonalized(allSongs.filter(s => 
-        (s.bpm || 100) >= 85 && (s.bpm || 100) <= 115 && (s.valence || 0.5) >= 0.45
-      ));
-
-      // 4. Puncak Senang & Bahagia (Valence > 0.65, Energy > 55, BPM > 105)
-      const tahap4_senang = sortPersonalized(allSongs.filter(s => 
-        matchEmotion(s.emotionalCategory, 'senang') || ((s.valence || 0) >= 0.65 && (s.energy || 0) >= 55)
-      ));
-
-      playlistRekomendasi = [
-        ...tahap1_validasi.slice(0, 2),
-        ...tahap2_rileks.slice(0, 3),
-        ...tahap3_elevasi.slice(0, 3),
-        ...tahap4_senang.slice(0, 2)
-      ];
-    }
-
-    // Pastikan minimal 10 lagu tanpa duplikasi ID
-    if (playlistRekomendasi.length < 10) {
-      const existingIds = new Set(playlistRekomendasi.map(s => s.id));
-      const fallback = sortPersonalized(allSongs.filter(s => !existingIds.has(s.id)));
-      playlistRekomendasi = [...playlistRekomendasi, ...fallback.slice(0, 10 - playlistRekomendasi.length)];
-    }
-
-    // 🎯 6. GEMINI SYSTEM INSTRUCTION (BERBASIS EMPATI, KESIMPULAN EMOSI & NADA SAPAAN MULTI-EMOSI)
+    // -------------------------------------------------------------------------
+    // 🎯 4. GEMINI SYSTEM INSTRUCTION - KECERDASAN SEMANTIK INTENT & CONSTRAINTS
+    // -------------------------------------------------------------------------
     let chatHistoryText = recentChatList.map(c => `${c.role}: ${c.message}`).join("\n");
     const repeatedSongTitle = repeatedSong?.title || "lagu ini";
+    const isAutoTrigger = Boolean(isAutoInitiated);
 
     let systemInstruction = `
-      Anda adalah Sona AI, sahabat & asisten psikologi musik empiris yang ramah, hangat, empati, dan ilmiah.
+      Anda adalah Sona AI, sahabat pendengar yang hangat, empati tinggi, & asisten psikologi musik empiris yang cerdas.
       Subjek: ${profile.fullName} (${profile.gender}).
       
-      PREFERENSI MUSIK PENGGUNA (${targetUserId}):
-      - Genre Favorit (History): ${topGenres.join(", ") || "Pop"}
-      - Artis Favorit (History): ${topArtists.join(", ") || "Umum"}
+      PREFERENSI HISTORIS MUSIK PENGGUNA (${targetUserId}):
+      - Genre Favorit: ${topGenres.join(", ") || "Pop"}
+      - Artis Favorit: ${topArtists.join(", ") || "Umum"}
       - Riwayat Percakapan Terakhir:
       ${chatHistoryText || "Belum ada percakapan."}
 
       STATUS CHAT SAAT INI:
       - Pesan Pengguna: "${userMessage || ''}"
       - Pemicu Otomatis Sistem (Trigger 5 lagu / repeat 5x): ${isAutoTrigger ? "YA" : "TIDAK"}
-      - Minta Playlist Langsung: ${isExplicitMusicRequest ? "YA" : "TIDAK"}
       - Kondisi Khusus (Repeat 1 lagu 5x berlebihan): ${isSpecialCondition ? `YA (Judul: "${repeatedSongTitle}")` : "TIDAK"}
-      - Emosi Awal Terdeteksi: "${emosiUser || 'perlu disimpulkan dari chat'}"
+      - Emosi Awal Terdeteksi: "${detectedEmotion || 'perlu disimpulkan dari chat'}"
 
-      PANDUAN NADA SAPAAN & DETEKSI EMOSI ADAPTIF (BAHASA INDONESIA):
-      Sona AI MENGANALISIS EMOSI SECARA ADAPTIF & PRESISI DALAM BAHASA INDONESIA:
-      - Nilai "detectedEmotion" HARUS berupa kata emosi Bahasa Indonesia yang paling tepat dan spesifik mewakili cerita/curhatan/kondisi pengguna.
-      - Contoh emosi adaptif Bahasa Indonesia: "frustrasi", "stres", "cemas", "lelah", "penat", "kecewa", "marah", "kesal", "sedih", "galau", "tenang", "santai", "damai", "fokus", "senang", "bahagia", "semangat", "gembira", "gelisah", dll.
-      - PENTING: JANGAN gunakan bahasa Inggris untuk "detectedEmotion" (misal: gunakan "stres" bukan "stressed", "frustrasi" bukan "frustrated", "cemas" bukan "anxious").
+      PRINSIP KECERDASAN SEMANTIK & HIRARKI REKOMENDASI (PENTING):
 
-      PANDUAN RESPONS KATEGORI EMOSI:
-      - EMOSI POSITIF (Senang, Bahagia, Semangat, Gembira, Bangga): Sambut dengan gembira, antusias, dan ceria. Sampaikan bahwa gradasi musik disiapkan untuk merayakan dan memperpanjang energi positif pengguna.
-      - EMOSI TENANG / RILEKS (Tenang, Santai, Damai, Fokus): Sambut dengan hangat, teduh, dan tenang. Sampaikan bahwa gradasi musik disiapkan untuk menemani ketenangan dan menjaga fokus pikiran.
-      - EMOSI TEKANAN / NEGATIF (Frustrasi, Stres, Cemas, Lelah, Marah, Kecewa, Sedih): Sambut dengan empati mendalam, ramah, dan tanpa menghakimi. Sampaikan bahwa gradasi musik disiapkan secara bertahap (ISO principle) untuk meredakan ketegangan, mendampingi, dan memulihkan kenyamanan emosi.
-      - KONDISI KHUSUS (Repeat 1 lagu 5x): Apresiasi rasa sukanya pada lagu tersebut, lalu tawarkan gradasi musik penenangan relaksasi agar suasana pendengaran tetap segar.
+      HIRARKI UTAMA:
+      1. TANGGAPAN BAIK TERLEBIH DAHULU (ALWAYS RESPOND EMPATHETICALLY FIRST):
+         Setiap kali pengguna bercerita atau curhat, Sona AI WAJIB merespons cerita/perasaannya dengan tanggapan yang sangat baik, hangat, empati, dan mendengarkan dengan tulus terlebih dahulu.
+      2. PERINTAH DICHAT ADALAH PRIORITAS UTAMA (HIGHEST PRIORITY):
+         Jika pengguna memberikan perintah spesifik di chat (misal genre: R&B/Pop/Rock/Jazz/Akustik, bahasa: English/Indonesia/Jawa, nuansa: upbeat/slow, atau nama artis), perintah tersebut WAJIB menjadi filter utama.
+      3. PREFERENSI HISTORIS MUSIK TETAP JADI PERTIMBANGAN:
+         Riwayat genre & artis favorit pengguna (Top Genres: ${topGenres.join(", ") || "Pop"}, Top Artists: ${topArtists.join(", ") || "Umum"}) digunakan untuk merangking (sorting) lagu-lagu kandidat yang telah lolos filter perintah chat.
+      4. PENOLAKAN DICHAT (ABSOLUTE FILTER):
+         Lagu, artis, atau genre yang dilarang pengguna HARUS dihapus total dan DILARANG KERAS disarankan dalam balasan chat.
 
-      PANDUAN ALUR CHAT:
-      1. JIKA PENGGUNA HANYA MENYAPA ATAU BERCERITA / CURHAT TANPA LANGSUNG MEMINTA PLAYLIST (Minta Playlist = TIDAK & Trigger Otomatis = TIDAK):
-         - Balaslah dengan hangat dan penuh empati dalam Bahasa Indonesia.
-         - Dari cerita/sapaan, SIMPULKAN emosi spesifik pengguna secara adaptif (misal: "frustrasi", "stres", "cemas", "lelah", "sedih", "senang", dll).
-         - Sebutkan kesimpulan emosi tersebut dalam percakapan secara alami.
-         - Tanyakan dengan ramah apakah dia ingin mendengarkan gradasi musik penyeimbang/pendamping mood untuk emosi tersebut.
-         - Set "shouldUpdatePlaylist": false.
-         - Set "detectedEmotion": "<kata_emosi_bahasa_indonesia_teranalisis>".
+      1. KLASIFIKASI NIAT PENGGUNA (userIntent):
+         Analisis pesan pengguna dengan kecerdasan semantikmu secara fleksibel:
+         - "greeting_or_chitchat": Pengguna baru menyapa ("Halo Sona", "Hai", "Selamat pagi"), menanyakan kabar AI, atau obrolan ringan awal.
+         - "curhat_in_progress": Pengguna sedang menceritakan masalah, kejadian hari ini, perasaan, atau beban pikiran, TAPI cerita curhatnya MASIH BERLANJUT / BELUM SELESAI dan pengguna BELUM MINTA playlist/lagu.
+         - "curhat_finished": Cerita curhat pengguna sudah selesai, atau pengguna mengisyaratkan telah lega menceritakan semuanya / menanyakan pendapat AI atas perasaannya.
+         - "request_music": Pengguna MENJAWAB "IYA", "MAU", "BOLEH", "COBA", "PUTARIN", "AYO" saat ditawari musik, ATAU pengguna dari awal secara eksplisit meminta rekomendasi lagu/playlist/genre tertentu.
+         - "end_session": Pengguna mengisyaratkan menyudahi sesi chat ("terima kasih Sona", "selesai", "sampai jumpa", "bye").
 
-      2. JIKA PENGGUNA EKSPLISIT MEMINTA PLAYLIST / REKOMENDASI (Minta Playlist = YA):
-         - Berikan respon hangat yang sesuai dengan emosinya & jelaskan gradasi musik personal yang disiapkan berbasis preferensi genre/artis miliknya.
-         - Set "shouldUpdatePlaylist": true.
-         - Set "detectedEmotion": "<kata_emosi_bahasa_indonesia_teranalisis>".
+      2. ATURAN PENANGANAN LULUSAN EMPATI (SANGAT PENTING - ALUR MUSIK KETAT):
+         - JIKA userIntent ADALAH "greeting_or_chitchat" ATAU "curhat_in_progress":
+           * Set "shouldUpdatePlaylist": false.
+           * DALAM "aiResponse", TANGGAPI PENGGUNA SEBAGAI SAHABAT PENDENGAR YANG EMPATIS TERLEBIH DAHULU.
+           * DILARANG KERAS MENYODORKAN PLAYLIST, MENYURUH MENDENGARKAN MUSIK, ATAU MEMBERIKAN DAFTAR LAGU!
+           * Dengarkan dengan tulus, validasi perasaannya, dan tanyakan kelanjutan ceritanya dengan hangat.
+         - JIKA userIntent ADALAH "curhat_finished" (CERITA CURHAT SUDAH SELESAI):
+           * Set "shouldUpdatePlaylist": false.
+           * DALAM "aiResponse", berikan tanggapan & penguatan emosional yang baik dulu atas seluruh cerita pengguna.
+           * KEMUDIAN DI AKHIR BALASAN, TANYAKAN DENGAN HANGAT DAN MANIS:
+             "Mau coba dengerin langsung untuk membantu memperbaiki suasana hatimu gaa??"
+           * DILARANG LANGSUNG MEMBERIKAN DAFTAR LAGU/PLAYLIST! Tunggu pengguna menjawab "iya" atau "mau".
+         - JIKA userIntent ADALAH "request_music" (Pengguna Menjawab "Iya", "Mau", "Boleh", "Putar", atau Minta Lagu):
+           * Set "shouldUpdatePlaylist": true.
+           * Sampaikan dengan ramah & antusias bahwa Sona AI telah menyiapkan playlist lagu khusus untuk membantu meredakan/memperbaiki suasana hatinya.
+         - JIKA Pemicu Otomatis Sistem (isAutoTrigger/isSpecialCondition):
+           * Set "shouldUpdatePlaylist": true.
 
-      3. JIKA PEMICU OTOMATIS SISTEM / PROAKTIF (Trigger Otomatis = YA):
-         - Sona AI HARUS NGECHAT DULUAN secara proaktif dengan sapaan hangat yang sesuai nada emosinya.
-         - Set "shouldUpdatePlaylist": true.
-         - Set "detectedEmotion": "${emosiUser || 'senang'}".
+      3. EKSTRAKSI LARANGAN & PENOLAKAN (excludedTerms) SECARA SEMANTIK:
+         Gunakan kecerdasan bahasa untuk mendeteksi apa yang DILARANG / DITOLAK oleh pengguna dari pesan dan histori (contoh: "jangan didi kempot", "ga mau dangdut", "bukan lagu jawa", "stop lagu galau", "tidak mau lagu slow").
+         * Masukkan istilah/artis/genre penolakan tersebut ke array "excludedTerms" (contoh: ["didi kempot", "dangdut", "pop jawa"]).
+         * DALAM "aiResponse", KAMU DILARANG KERAS MENYEBUTKAN ATAU MENYARANKAN ARTIS/GENRE TERSEBUT LAGI!
 
-      Format Output HARUS SELALU JSON MURNI:
+      4. EKSTRAKSI PREFERENSI GENRE, BAHASA & NUANSA EKSPLISIT:
+         - "requestedGenre": Genre spesifik jika diminta (contoh: "R&B", "Pop", "Rock", "Jazz", "Indie", "Acoustic", "Dangdut", "Pop Jawa", "any").
+         - "requestedLanguage": "english" | "indonesia" | "jawa" | "any".
+         - "requestedVibe": "upbeat" | "slow" | "calm" | "any".
+         - "requestedArtist": Nama artis spesifik jika diminta (atau "any").
+
+      Format Output WAJIB JSON MURNI:
       {
-        "aiResponse": "Teks pesan balasan empati Sona AI untuk pengguna dalam Bahasa Indonesia (sesuaikan nada emosinya)",
-        "reasoning": "Penjelasan ringkas ilmiah kesimpulan emosi dan gradasi audio features berbasis preferensi pengguna",
-        "detectedEmotion": "kata emosi spesifik teranalisis dalam Bahasa Indonesia (contoh: frustrasi, stres, cemas, lelah, sedih, tenang, senang, dll)",
-        "shouldUpdatePlaylist": true/false
+        "userIntent": "greeting_or_chitchat" | "curhat_in_progress" | "curhat_finished" | "request_music" | "end_session",
+        "aiResponse": "Teks balasan empati Sona AI untuk pengguna dalam Bahasa Indonesia",
+        "reasoning": "Analisis singkat kesimpulan emosi dan niat pengguna",
+        "detectedEmotion": "Emosi spesifik terdeteksi dalam Bahasa Indonesia (contoh: frustrasi, lelah, cemas, sedih, tenang, senang, dll)",
+        "excludedTerms": ["didi kempot", "dangdut"],
+        "requestedGenre": "R&B" | "any",
+        "requestedLanguage": "english" | "indonesia" | "any",
+        "requestedVibe": "upbeat" | "slow" | "any",
+        "shouldUpdatePlaylist": true | false
       }
     `;
 
     const promptUserText = userMessage || (isAutoInitiated 
       ? (isSpecialCondition 
           ? `Saya memutar lagu "${repeatedSongTitle}" 5 kali berturut-turut. Sapa saya dengan kondisi khusus ini secara ramah.` 
-          : `Saya mendengarkan 5 lagu emosi "${emosiUser || 'senang'}" berturut-turut. Sapa saya secara proaktif sesuai nada emosi ini.`)
+          : `Saya mendengarkan 5 lagu emosi "${detectedEmotion || 'senang'}" berturut-turut. Sapa saya secara proaktif sesuai nada emosi ini.`)
       : 'Halo Sona AI');
 
     const prompt = `Pesan pengguna/sistem: "${promptUserText}".`;
@@ -345,20 +289,19 @@ export async function POST(request) {
     if (isSpecialCondition) {
       defaultGreeting = `Halo ${profile.fullName}, aku memperhatikan kamu memutar "${repeatedSongTitle}" berulang kali (Kondisi Khusus). Mari rilekskan pikiran sejenak dengan gradasi audio penenangan yang kusiapkan.`;
     } else if (isAutoInitiated) {
-      if (['senang', 'bahagia', 'semangat', 'gembira'].includes(emosiUser)) {
-        defaultGreeting = `Halo ${profile.fullName}! Wah, senang sekali melihat kamu sedang merasa ${emosiUser}! Aku sudah menyiapkan gradasi musik pilihan untuk merayakan dan menjaga energi bahagiamu hari ini.`;
-      } else if (['tenang', 'santai', 'damai'].includes(emosiUser)) {
-        defaultGreeting = `Halo ${profile.fullName}! Suasana hatimu terasa sangat ${emosiUser}. Aku menyajikan gradasi alun musik yang selaras untuk menemani ketenanganmu.`;
-      } else {
-        defaultGreeting = `Halo ${profile.fullName}! Aku mendeteksi kamu sedang merasa ${emosiUser || 'tertentu'}. Aku telah menyusun gradasi musik personal berbasis audio features untuk mendampingi dan membuat perasaanmu lebih nyaman.`;
-      }
+      defaultGreeting = `Halo ${profile.fullName}! Sona AI siap menyajikan gradasi musik personal untuk menemani harimu.`;
     }
 
     let aiResult = {
+      userIntent: userMessage ? (/(?:lagu|playlist|musik|putar|rekomendasi|r&b|rnb|english|inggris|iya|mau|boleh|coba|setel)/i.test(userMessage) ? "request_music" : "curhat_in_progress") : "greeting_or_chitchat",
       aiResponse: defaultGreeting,
-      reasoning: "Penyimpulan emosi dari percakapan & penyusunan gradasi musik ISO principle berbasis preferensi riwayat.",
-      detectedEmotion: emosiUser || 'senang',
-      shouldUpdatePlaylist: isAutoInitiated || isExplicitMusicRequest
+      reasoning: "Analisis awal percakapan dan respon empati.",
+      detectedEmotion: (detectedEmotion || 'senang').toLowerCase(),
+      excludedTerms: [],
+      requestedGenre: "any",
+      requestedLanguage: "any",
+      requestedVibe: "any",
+      shouldUpdatePlaylist: Boolean(isAutoInitiated || isSpecialCondition)
     };
 
     try {
@@ -384,16 +327,219 @@ export async function POST(request) {
       }
 
       if (response && response.text) {
-        aiResult = JSON.parse(response.text);
+        const parsed = JSON.parse(response.text);
+        aiResult = { ...aiResult, ...parsed };
       }
     } catch (modelErr) {
       console.warn("⚠️ Error Gemini:", modelErr.message);
     }
 
-    const finalEmotion = aiResult.detectedEmotion || emosiUser || 'sedih';
-    const shouldUpdatePlaylist = Boolean(aiResult.shouldUpdatePlaylist || isAutoInitiated || isExplicitMusicRequest);
+    // -------------------------------------------------------------------------
+    // 🎯 5. GABUNGKAN LARANGAN NEGATIF (GEMINI + REGEX FALLBACK)
+    // -------------------------------------------------------------------------
+    const lowerUserMessage = (userMessage || '').toLowerCase();
+    const excludedKeywords = new Set(aiResult.excludedTerms || []);
 
-    // 7. Simpan History Chat & History Mood ke Firebase
+    const negativeRegex = /(?:jangan|bukan|tidak mau|gak suka|ga suka|gak mau|ga mau|selain|tanpa|no|exclude|banned|stop)\s+([a-zA-Z0-9\s]+?)(?=[.,;!?]|$|\s(?:dan|atau|tapi|namun|mau|pilih|ganti))/gi;
+    let negMatch;
+    while ((negMatch = negativeRegex.exec(lowerUserMessage)) !== null) {
+      if (negMatch[1]) {
+        const term = negMatch[1].replace(/^(?:lagu|musik|penyanyi|artis|genre|yang|putar|setel|pilihan|nyanyian|lagunya|suara)\s+/gi, '').trim();
+        if (term.length >= 2) excludedKeywords.add(term);
+      }
+    }
+
+    if (/(?:jangan|bukan|tidak mau|gak mau|ga mau|gak suka|ga suka|selain|tanpa|no|stop)/i.test(lowerUserMessage)) {
+      if (lowerUserMessage.includes('didi kempot') || lowerUserMessage.includes('didi') || lowerUserMessage.includes('kempot')) {
+        excludedKeywords.add('didi kempot');
+        excludedKeywords.add('didi');
+        excludedKeywords.add('kempot');
+      }
+      if (lowerUserMessage.includes('dangdut')) excludedKeywords.add('dangdut');
+      if (lowerUserMessage.includes('pop jawa') || lowerUserMessage.includes('jawa')) {
+        excludedKeywords.add('pop jawa');
+        excludedKeywords.add('jawa');
+      }
+      if (lowerUserMessage.includes('galau')) excludedKeywords.add('galau');
+      if (lowerUserMessage.includes('slow')) excludedKeywords.add('slow');
+      if (lowerUserMessage.includes('sedih')) excludedKeywords.add('sedih');
+      if (lowerUserMessage.includes('pop indo') || lowerUserMessage.includes('indonesia')) excludedKeywords.add('pop indo');
+    }
+
+    const excludedTermsArray = Array.from(excludedKeywords);
+
+    if (excludedTermsArray.length > 0) {
+      allSongs = allSongs.filter(song => {
+        const songTitle = (song.title || '').toLowerCase();
+        const songArtist = (song.artist || '').toLowerCase();
+        const songGenre = (song.genre || '').toLowerCase();
+        const songCategory = (song.emotionalCategory || '').toLowerCase();
+
+        return !excludedTermsArray.some(term => {
+          if (!term) return false;
+          if (songTitle.includes(term) || songArtist.includes(term) || songGenre.includes(term) || songCategory.includes(term)) return true;
+          const termWords = term.split(/\s+/).filter(w => w.length >= 3);
+          if (termWords.length > 1 && termWords.some(w => songArtist.includes(w) || songTitle.includes(w))) return true;
+          return false;
+        });
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // 🎯 6. KEPUTUSAN UPDATE PLAYLIST & PENYUSUNAN DAFTAR LAGU
+    // -------------------------------------------------------------------------
+    const finalEmotion = aiResult.detectedEmotion || detectedEmotion || 'sedih';
+    
+    // Playlist HANYA di-update bila user MINTA REKOMENDASI MUSIK atau pemicu otomatis/kondisi khusus!
+    const isChitchatOrCurhat = aiResult.userIntent === 'greeting_or_chitchat' || 
+                               aiResult.userIntent === 'curhat_in_progress' || 
+                               aiResult.userIntent === 'curhat_finished';
+    const shouldUpdatePlaylist = Boolean(
+      (aiResult.shouldUpdatePlaylist || aiResult.userIntent === 'request_music' || isAutoInitiated || isSpecialCondition) &&
+      !isChitchatOrCurhat
+    );
+
+    const matchEmotion = (songCategory, target) => {
+      if (!songCategory) return false;
+      const cat = songCategory.toLowerCase().trim();
+      const tgt = (target || '').toLowerCase().trim();
+
+      if (['senang', 'happy', 'bahagia', 'gembira', 'semangat', 'bangga', 'antusias', 'ceria'].includes(tgt)) {
+        return ['senang', 'happy'].some(x => cat.includes(x));
+      }
+      if (['tenang', 'relaxed', 'santai', 'damai', 'fokus', 'rileks', 'calm'].includes(tgt)) {
+        return ['tenang', 'relaxed', 'calm'].some(x => cat.includes(x));
+      }
+      if (['marah', 'angry', 'frustrasi', 'frustasi', 'jengkel', 'kesal', 'stres', 'stress'].includes(tgt)) {
+        return ['marah', 'angry', 'sedih'].some(x => cat.includes(x));
+      }
+      if (['cemas', 'fear', 'lelah', 'capek', 'penat', 'khawatir', 'gelisah', 'sedih', 'sad', 'kecewa', 'patah hati'].includes(tgt)) {
+        return ['sedih', 'sad', 'tenang', 'cemas', 'fear'].some(x => cat.includes(x));
+      }
+      return cat.includes(tgt) || tgt.includes(cat);
+    };
+
+    const shuffleArray = (array) => {
+      const arr = [...array];
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    };
+
+    const sortPersonalized = (songList) => {
+      // Shuffle array first so equal/similar scoring songs don't preserve fixed CSV/JSON row order
+      const shuffled = shuffleArray(songList);
+      return shuffled.sort((a, b) => {
+        const aPlayed = recentPlayedIds.has(a.id) ? -20 : 0;
+        const bPlayed = recentPlayedIds.has(b.id) ? -20 : 0;
+        // Variasi acak dinamis (+- 8 poin) agar rekomendasi selalu segar & tidak selalu Suket Teki atau lagu #1
+        const jitterA = Math.random() * 8;
+        const jitterB = Math.random() * 8;
+        const scoreA = (a.preferenceScore || 0) + aPlayed + jitterA;
+        const scoreB = (b.preferenceScore || 0) + bPlayed + jitterB;
+        return scoreB - scoreA;
+      });
+    };
+
+    let playlistRekomendasi = [];
+
+    if (shouldUpdatePlaylist) {
+      const reqGenre = (aiResult.requestedGenre && aiResult.requestedGenre !== 'any') ? aiResult.requestedGenre.toLowerCase() : null;
+      const reqLang = (aiResult.requestedLanguage && aiResult.requestedLanguage !== 'any') ? aiResult.requestedLanguage.toLowerCase() : null;
+      const reqVibe = (aiResult.requestedVibe && aiResult.requestedVibe !== 'any') ? aiResult.requestedVibe.toLowerCase() : null;
+      const reqArtist = (aiResult.requestedArtist && aiResult.requestedArtist !== 'any') ? aiResult.requestedArtist.toLowerCase() : null;
+
+      const wantsRnb = reqGenre?.includes('r&b') || reqGenre?.includes('rnb') || /r&b|rnb|r n b|r and b/i.test(userMessage);
+      const wantsEnglish = reqLang === 'english' || /english|inggris|barat|western|luar|us|uk|international/i.test(userMessage);
+      const wantsIndo = reqLang === 'indonesia' || reqLang === 'jawa' || /indonesia|indo|lokal|jawa/i.test(userMessage);
+      const wantsUpbeat = reqVibe === 'upbeat' || /upbeat|semangat|ceria|gembira|enerjik|fast|cepat|dance/i.test(userMessage);
+      const wantsSlow = reqVibe === 'slow' || reqVibe === 'calm' || /slow|pelan|santai|lembut|akustik|menenangkan|tenang|pengantar tidur/i.test(userMessage);
+
+      const hasExplicitChatCommand = Boolean(reqGenre || reqLang || reqVibe || reqArtist || wantsRnb || wantsEnglish || wantsIndo || wantsUpbeat || wantsSlow);
+
+      if (isSpecialCondition && repeatedSong) {
+        const penenang = sortPersonalized(allSongs.filter(s => matchEmotion(s.emotionalCategory, 'tenang') || (s.acousticness || 0) >= 40));
+        const transisi = sortPersonalized(allSongs.filter(s => (s.bpm || 100) >= 80 && (s.bpm || 100) <= 110));
+        const bahagia = sortPersonalized(allSongs.filter(s => matchEmotion(s.emotionalCategory, 'senang')));
+
+        playlistRekomendasi = [
+          ...penenang.slice(0, 3),
+          ...transisi.slice(0, 4),
+          ...bahagia.slice(0, 3)
+        ];
+      } else if (hasExplicitChatCommand) {
+        // PERINTAH CHAT SEBAGAI FILTER UTAMA
+        let matchingSongs = allSongs.filter(song => {
+          const songGenre = (song.genre || '').toLowerCase();
+          const songArtist = (song.artist || '').toLowerCase();
+          const songTitle = (song.title || '').toLowerCase();
+
+          if (reqArtist && !(songArtist.includes(reqArtist) || reqArtist.includes(songArtist))) return false;
+          if (wantsEnglish && isIndoGenreOrArtist(song)) return false;
+          if (wantsIndo && !isIndoGenreOrArtist(song)) return false;
+          
+          if (wantsRnb) {
+            if (!songGenre.includes('r&b') && !songGenre.includes('rnb')) return false;
+          } else if (reqGenre && reqGenre !== 'any') {
+            if (!songGenre.includes(reqGenre) && !songTitle.includes(reqGenre)) return false;
+          }
+
+          if (wantsUpbeat) {
+            if ((song.bpm || 100) < 100 && (song.energy || 50) < 55 && !matchEmotion(song.emotionalCategory, 'senang')) return false;
+          }
+          if (wantsSlow) {
+            if ((song.bpm || 100) > 100 && (song.energy || 50) > 55 && !matchEmotion(song.emotionalCategory, 'tenang')) return false;
+          }
+
+          return true;
+        });
+
+        if (matchingSongs.length > 0) {
+          // URUTKAN HASIL FILTER BERDASARKAN PREFERENSI HISTORIS PENGGUNA + JITTER VARIASI ACAK
+          const sorted = sortPersonalized(matchingSongs);
+          playlistRekomendasi = shuffleArray(sorted.slice(0, 10));
+        } else {
+          // Fallback sekunder jika kombinasi sangat spesifik: ambil filter bahasa/genre yang paling relevan
+          let fallbackCandidates = allSongs;
+          if (wantsEnglish) fallbackCandidates = fallbackCandidates.filter(s => !isIndoGenreOrArtist(s));
+          if (wantsIndo) fallbackCandidates = fallbackCandidates.filter(s => isIndoGenreOrArtist(s));
+          playlistRekomendasi = shuffleArray(sortPersonalized(fallbackCandidates).slice(0, 10));
+        }
+      } else {
+        // PERINTAH UMUM / BEBAS: GUNAKAN GRADASI EMOSI DENGAN VARIABILITAS & SELEKSI DYNAMIC
+        const targetEmosiAwal = finalEmotion || 'sedih';
+
+        const tahap1_validasi = sortPersonalized(allSongs.filter(s => matchEmotion(s.emotionalCategory, targetEmosiAwal)));
+        const tahap2_rileks = sortPersonalized(allSongs.filter(s => 
+          matchEmotion(s.emotionalCategory, 'tenang') || ((s.energy || 50) <= 55 && (s.bpm || 90) <= 90)
+        ));
+        const tahap3_elevasi = sortPersonalized(allSongs.filter(s => 
+          (s.bpm || 100) >= 85 && (s.bpm || 100) <= 115 && (s.valence || 0.5) >= 0.45
+        ));
+        const tahap4_senang = sortPersonalized(allSongs.filter(s => 
+          matchEmotion(s.emotionalCategory, 'senang') || ((s.valence || 0) >= 0.65 && (s.energy || 0) >= 55)
+        ));
+
+        playlistRekomendasi = [
+          ...tahap1_validasi.slice(0, 2),
+          ...tahap2_rileks.slice(0, 3),
+          ...tahap3_elevasi.slice(0, 3),
+          ...tahap4_senang.slice(0, 2)
+        ];
+      }
+
+      if (playlistRekomendasi.length < 10) {
+        const existingIds = new Set(playlistRekomendasi.map(s => s.id));
+        const fallback = sortPersonalized(allSongs.filter(s => !existingIds.has(s.id)));
+        playlistRekomendasi = [...playlistRekomendasi, ...fallback.slice(0, 10 - playlistRekomendasi.length)];
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // 🎯 7. SIMPAN CHAT HISTORY & MOOD LOG KE FIREBASE
+    // -------------------------------------------------------------------------
     if (targetUserId) {
       try {
         const timestamp = new Date().toISOString();
@@ -431,7 +577,7 @@ export async function POST(request) {
     console.error("❌ Error Chat Route:", error);
     return NextResponse.json({ 
       success: true, 
-      sapaanAI: "Sona AI siap menemani. Nikmati gradasi musik berikut!",
+      sapaanAI: "Sona AI siap menemani. Ada yang ingin kamu ceritakan?",
       playlist: []
     });
   }
