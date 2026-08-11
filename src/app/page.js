@@ -1041,11 +1041,11 @@ export default function HomePage() {
                         setPlaylist(msg.playlist);
                         setCurrentSong(msg.playlist[0]);
                         setIsPlaying(true);
-                        showToast(`🎵 Memutar Gradasi Musik`);
+                        showToast(`🎵 Memutar Gradasi Musik (${msg.detectedEmotion || 'Terdeteksi'})`);
                       }}
                       className="mt-2 w-full py-2 px-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[11px] rounded-xl transition shadow flex items-center justify-center gap-1.5"
                     >
-                      <Play className="w-3.5 h-3.5 fill-white" /> Putar Gradasi Musik
+                      <Play className="w-3.5 h-3.5 fill-white" /> Putar Gradasi Musik ( <span className="capitalize">{msg.detectedEmotion || 'Tenang'}</span> )
                     </button>
                   )}
                 </div>
