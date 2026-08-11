@@ -1008,19 +1008,19 @@ export default function HomePage() {
               <button
                 onClick={() => setIsHelpCenterOpen(true)}
                 title="Help Center & Hotline Bantuan Psikolog"
-                className="px-2.5 py-1 bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-300 text-[10px] font-bold rounded-xl transition flex items-center gap-1"
+                className="px-2.5 py-1 bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-300 text-[11px] font-bold rounded-xl transition flex items-center gap-1 shrink-0"
               >
-                <LifeBuoy className="w-3.5 h-3.5 text-rose-400" />
-                <span className="hidden sm:inline">Help Center</span>
+                <LifeBuoy className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                <span>Help Center</span>
               </button>
 
               <button
                 onClick={() => setIsEduModalOpen(true)}
                 title="Info Lanjut & Panduan Sona AI"
-                className="p-1.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-slate-700 rounded-xl transition flex items-center gap-1 text-[11px] px-2.5 py-1"
+                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-slate-700 rounded-xl transition flex items-center gap-1 text-[11px] font-semibold shrink-0"
               >
-                <Info className="w-4 h-4 text-indigo-400" />
-                <span className="font-semibold text-indigo-200">Info Lanjut</span>
+                <Info className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                <span className="text-indigo-200">Info Lanjut</span>
               </button>
             </div>
           </div>
