@@ -991,24 +991,24 @@ export default function HomePage() {
         <div className="flex-1 max-w-md md:max-w-2xl mx-auto w-full px-3 md:px-4 pt-3 flex flex-col h-[calc(100vh-140px)]">
           {/* Chat Header */}
           <div className="p-3 bg-[#181818] border border-slate-800 rounded-t-2xl flex items-center justify-between gap-2 shadow-lg shrink-0">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow flex-shrink-0">
-                <Bot className="w-5 h-5" />
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow shrink-0">
+                <Bot className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
               <div className="min-w-0">
-                <h3 className="text-sm font-bold text-white truncate">Sona AI Companion</h3>
-                <p className="text-[10px] text-[#1DB954] flex items-center gap-1 font-semibold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#1DB954] animate-pulse"></span> Online • Regulasi Mood & Psikologi Musik
+                <h3 className="text-xs sm:text-sm font-bold text-white truncate">Sona AI Companion</h3>
+                <p className="text-[10px] text-[#1DB954] flex items-center gap-1 font-semibold truncate">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#1DB954] animate-pulse shrink-0"></span> Online<span className="hidden sm:inline"> • Psikologi Musik</span>
                 </p>
               </div>
             </div>
 
             {/* Header Action Buttons */}
-            <div className="flex items-center gap-1.5 flex-shrink-0">
+            <div className="flex items-center gap-1.5 shrink-0">
               <button
                 onClick={() => setIsHelpCenterOpen(true)}
                 title="Help Center & Hotline Bantuan Psikolog"
-                className="px-2.5 py-1 bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-300 text-[11px] font-bold rounded-xl transition flex items-center gap-1 shrink-0"
+                className="px-2 sm:px-2.5 py-1 bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-300 text-[10px] sm:text-[11px] font-bold rounded-xl transition flex items-center gap-1 shrink-0"
               >
                 <LifeBuoy className="w-3.5 h-3.5 text-rose-400 shrink-0" />
                 <span>Help Center</span>
@@ -1017,7 +1017,7 @@ export default function HomePage() {
               <button
                 onClick={() => setIsEduModalOpen(true)}
                 title="Info Lanjut & Panduan Sona AI"
-                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-slate-700 rounded-xl transition flex items-center gap-1 text-[11px] font-semibold shrink-0"
+                className="px-2 sm:px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-slate-700 rounded-xl transition flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold shrink-0"
               >
                 <Info className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
                 <span className="text-indigo-200">Info Lanjut</span>
