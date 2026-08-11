@@ -18,7 +18,7 @@ import {
   Heart, 
   Play, 
   Calendar, 
-  UserCheck 
+  UserCheck
 } from 'lucide-react';
 
 export default function ProfileView({ onBackToHome }) {
@@ -438,7 +438,11 @@ export default function ProfileView({ onBackToHome }) {
           <>
             {activeTab === 'chat' && (
               <div className="space-y-3">
-                <h2 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Riwayat Chat Sona AI</h2>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <MessageSquare className="w-3.5 h-3.5 text-indigo-400" /> Riwayat Chat Sona AI
+                  </h2>
+                </div>
                 {chatHistory.length === 0 ? (
                   <p className="text-xs text-slate-500 py-12 text-center">Belum ada riwayat percakapan chat.</p>
                 ) : (
