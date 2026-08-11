@@ -136,26 +136,26 @@ export const AudioProvider = ({ children, userId: propUserId }) => {
           });
         } else {
           const stored = localStorage.getItem('sona_user_id');
-          setUserId(stored);
-          if (stored) {
-            Promise.resolve().then(() => {
+          Promise.resolve().then(() => {
+            setUserId(stored);
+            if (stored) {
               fetchUserProfile(stored);
               fetchCustomPlaylists(stored);
               fetchFavorites(stored);
-            });
-          }
+            }
+          });
         }
       });
     } else {
       const stored = localStorage.getItem('sona_user_id');
-      setUserId(stored);
-      if (stored) {
-        Promise.resolve().then(() => {
+      Promise.resolve().then(() => {
+        setUserId(stored);
+        if (stored) {
           fetchUserProfile(stored);
           fetchCustomPlaylists(stored);
           fetchFavorites(stored);
-        });
-      }
+        }
+      });
     }
 
     return () => unsub();
