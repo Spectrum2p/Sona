@@ -395,7 +395,7 @@ export default function HomePage() {
         if (data.shouldUpdatePlaylist && data.playlist && data.playlist.length > 0) {
           setSongs(data.playlist);
           setPlaylist(data.playlist);
-          showToast(`🎵 Gradasi musik untuk emosi "${data.detectedEmotion || 'pilihan'}" dimuat!`);
+          showToast(`🎵 Gradasi musik dimuat!`);
         }
       } else {
         throw new Error(data.error || 'Gagal memuat respon AI');
@@ -446,7 +446,7 @@ export default function HomePage() {
         if (aiMsgWithPlaylist && aiMsgWithPlaylist.playlist.length > 0) {
           setSongs(aiMsgWithPlaylist.playlist);
           setPlaylist(aiMsgWithPlaylist.playlist);
-          showToast(`✨ Rekomendasi Musik AI (${aiMsgWithPlaylist.detectedEmotion || 'Terbaru'})`);
+          showToast(`✨ Rekomendasi Musik AI Terbaru`);
         } else if (aiNotification && aiNotification.playlist && aiNotification.playlist.length > 0) {
           setSongs(aiNotification.playlist);
           setPlaylist(aiNotification.playlist);
@@ -847,7 +847,7 @@ export default function HomePage() {
                 if (aiMsgWithPlaylist && aiMsgWithPlaylist.playlist.length > 0) {
                   setSongs(aiMsgWithPlaylist.playlist);
                   setPlaylist(aiMsgWithPlaylist.playlist);
-                  showToast(`✨ Rekomendasi Musik AI (${aiMsgWithPlaylist.detectedEmotion || 'Terbaru'})`);
+                  showToast(`✨ Rekomendasi Musik AI Terbaru`);
                 } else if (aiNotification && aiNotification.playlist && aiNotification.playlist.length > 0) {
                   setSongs(aiNotification.playlist);
                   setPlaylist(aiNotification.playlist);
