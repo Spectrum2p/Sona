@@ -36,7 +36,8 @@ import {
   X,
   Check,
   HeartPulse,
-  RefreshCw
+  RefreshCw,
+  Shuffle
 } from 'lucide-react';
 
 export default function HomePage() {
@@ -67,6 +68,9 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('all'); // all, valence, sedih, senang, tenang, cemas
   const [displayLimit, setDisplayLimit] = useState(100);
+  const [sortMode, setSortMode] = useState('default'); // 'default' | 'most_played' | 'shuffle'
+  const [shuffledSeed, setShuffledSeed] = useState(0);
+  const [playCounts, setPlayCounts] = useState({});
   
   // Spotify Navigation Tabs: 'home' | 'library' | 'chatbot'
   const [activeNavTab, setActiveNavTab] = useState('home');
@@ -121,6 +125,37 @@ export default function HomePage() {
       sessionStorage.setItem(`sona_chat_session_${userId}`, JSON.stringify(chatMessages));
     }
   }, [chatMessages, userId]);
+
+  // Muat play_history dari Firebase untuk menghitung lagu yang sering diputar
+  useEffect(() => {
+    if (!userId || typeof window === 'undefined') return;
+    let isMounted = true;
+    const loadPlayCounts = async () => {
+      try {
+        const { ref, get } = await import('firebase/database');
+        const { db } = await import('@/lib/firebase');
+        if (!db) return;
+        const historyRef = ref(db, `users/${userId}/play_history`);
+        const snapshot = await get(historyRef);
+        if (snapshot.exists() && isMounted) {
+          const val = snapshot.val();
+          const counts = {};
+          Object.values(val).forEach(item => {
+            if (!item) return;
+            const sId = String(item.songId || item.id || '');
+            const titleKey = (item.title || '').toLowerCase().trim();
+            if (sId) counts[sId] = (counts[sId] || 0) + 1;
+            if (titleKey) counts[titleKey] = (counts[titleKey] || 0) + 1;
+          });
+          setPlayCounts(counts);
+        }
+      } catch (err) {
+        console.warn("⚠️ Gagal memuat play history counts:", err.message);
+      }
+    };
+    loadPlayCounts();
+    return () => { isMounted = false; };
+  }, [userId]);
 
   // Muat History Chat dari Firebase Database untuk 1 Sesi Chat Terpadu
   useEffect(() => {
@@ -308,9 +343,35 @@ export default function HomePage() {
     );
   });
 
-  const displayedSongs = activeTab === 'valence'
-    ? [...filteredSongs].sort((a, b) => (parseFloat(a.valence) || 0) - (parseFloat(b.valence) || 0))
-    : filteredSongs;
+  const getSortedSongs = () => {
+    if (sortMode === 'most_played') {
+      return [...filteredSongs].sort((a, b) => {
+        const aId = String(a.id || '');
+        const bId = String(b.id || '');
+        const aTitle = (a.title || '').toLowerCase().trim();
+        const bTitle = (b.title || '').toLowerCase().trim();
+        const countA = (playCounts[aId] || 0) + (playCounts[aTitle] || 0) + (parseInt(a.play_count || a.popularity || 0) || 0);
+        const countB = (playCounts[bId] || 0) + (playCounts[bTitle] || 0) + (parseInt(b.play_count || b.popularity || 0) || 0);
+        return countB - countA;
+      });
+    }
+    if (sortMode === 'shuffle') {
+      const array = [...filteredSongs];
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.abs(Math.sin(i * 12.9898 + (shuffledSeed + 1) * 78.233) * 43758.5453) % (i + 1));
+        const temp = array[i];
+        array[i] = array[j];
+        array[j] = temp;
+      }
+      return array;
+    }
+    if (activeTab === 'valence') {
+      return [...filteredSongs].sort((a, b) => (parseFloat(a.valence) || 0) - (parseFloat(b.valence) || 0));
+    }
+    return filteredSongs;
+  };
+
+  const displayedSongs = getSortedSongs();
 
   const handlePlaySong = (song, index) => {
     setPlaylist(displayedSongs);
@@ -611,16 +672,55 @@ export default function HomePage() {
 
           {/* 🎶 Tampilan Koleksi Musik Tersedia (Persegi Panjang Cards) */}
           <div className="space-y-2.5 pt-2">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <h3 className="text-sm font-bold text-white">Daftar Musik Tersedia ({displayedSongs.length})</h3>
-              {songs.length < totalSongs && (
-                <button 
-                  onClick={loadAllSongs}
-                  className="text-[11px] font-semibold text-[#1DB954] hover:underline"
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
+                <button
+                  onClick={() => setSortMode('default')}
+                  className={`px-2.5 py-1 rounded-full text-[11px] border font-medium transition ${
+                    sortMode === 'default'
+                      ? 'bg-[#1DB954] text-black border-[#1DB954] font-bold shadow-sm'
+                      : 'bg-[#242424] text-slate-300 border-slate-700/60 hover:text-white hover:bg-[#2e2e2e]'
+                  }`}
                 >
-                  Muat Semua
+                  Default
                 </button>
-              )}
+                <button
+                  onClick={() => setSortMode('most_played')}
+                  className={`px-2.5 py-1 rounded-full text-[11px] border font-medium transition flex items-center gap-1.5 ${
+                    sortMode === 'most_played'
+                      ? 'bg-[#1DB954] text-black border-[#1DB954] font-bold shadow-sm'
+                      : 'bg-[#242424] text-slate-300 border-slate-700/60 hover:text-white hover:bg-[#2e2e2e]'
+                  }`}
+                  title="Urutkan berdasarkan lagu paling sering diputar"
+                >
+                  <TrendingUp className="w-3 h-3" />
+                  Sering Diputar
+                </button>
+                <button
+                  onClick={() => {
+                    setSortMode('shuffle');
+                    setShuffledSeed(prev => prev + 1);
+                  }}
+                  className={`px-2.5 py-1 rounded-full text-[11px] border font-medium transition flex items-center gap-1.5 ${
+                    sortMode === 'shuffle'
+                      ? 'bg-[#1DB954] text-black border-[#1DB954] font-bold shadow-sm'
+                      : 'bg-[#242424] text-slate-300 border-slate-700/60 hover:text-white hover:bg-[#2e2e2e]'
+                  }`}
+                  title="Acak urutan lagu"
+                >
+                  <Shuffle className="w-3 h-3" />
+                  Acak
+                </button>
+                {songs.length < totalSongs && (
+                  <button 
+                    onClick={loadAllSongs}
+                    className="text-[11px] font-semibold text-[#1DB954] hover:underline ml-1 whitespace-nowrap"
+                  >
+                    Muat Semua
+                  </button>
+                )}
+              </div>
             </div>
 
             {displayedSongs.length === 0 ? (
