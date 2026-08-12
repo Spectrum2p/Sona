@@ -500,6 +500,50 @@ export async function POST(request) {
       });
     };
 
+    const deduplicateSongs = (songList) => {
+      const seenIds = new Set();
+      const seenKeys = new Set();
+      const result = [];
+
+      for (const song of songList) {
+        if (!song) continue;
+        const songId = String(song.id || `song_${song.no || Math.random()}`);
+        const normalizeStr = (str) => (str || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const titleKey = normalizeStr(song.title);
+        const artistKey = normalizeStr(song.artist);
+        const songKey = `${titleKey}:::${artistKey}`;
+
+        if (!seenIds.has(songId) && (titleKey === '' || !seenKeys.has(songKey))) {
+          seenIds.add(songId);
+          if (titleKey !== '') seenKeys.add(songKey);
+          result.push(song);
+        }
+      }
+
+      return result;
+    };
+
+    const pickUniqueFrom = (candidateList, targetCount, usedIds, usedKeys) => {
+      const picked = [];
+      for (const song of candidateList) {
+        if (picked.length >= targetCount) break;
+        if (!song) continue;
+
+        const songId = String(song.id || `song_${song.no || Math.random()}`);
+        const normalizeStr = (str) => (str || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const titleKey = normalizeStr(song.title);
+        const artistKey = normalizeStr(song.artist);
+        const songKey = `${titleKey}:::${artistKey}`;
+
+        if (!usedIds.has(songId) && (titleKey === '' || !usedKeys.has(songKey))) {
+          usedIds.add(songId);
+          if (titleKey !== '') usedKeys.add(songKey);
+          picked.push(song);
+        }
+      }
+      return picked;
+    };
+
     let playlistRekomendasi = [];
 
     if (shouldUpdatePlaylist) {
@@ -521,11 +565,13 @@ export async function POST(request) {
         const transisi = sortPersonalized(allSongs.filter(s => (s.bpm || 100) >= 80 && (s.bpm || 100) <= 110));
         const bahagia = sortPersonalized(allSongs.filter(s => matchEmotion(s.emotionalCategory, 'senang')));
 
-        playlistRekomendasi = [
-          ...penenang.slice(0, 3),
-          ...transisi.slice(0, 4),
-          ...bahagia.slice(0, 3)
-        ];
+        const usedIds = new Set();
+        const usedKeys = new Set();
+        const p1 = pickUniqueFrom(penenang, 3, usedIds, usedKeys);
+        const p2 = pickUniqueFrom(transisi, 4, usedIds, usedKeys);
+        const p3 = pickUniqueFrom(bahagia, 3, usedIds, usedKeys);
+
+        playlistRekomendasi = [...p1, ...p2, ...p3];
       } else if (hasExplicitChatCommand) {
         // PERINTAH CHAT SEBAGAI FILTER UTAMA
         let matchingSongs = allSongs.filter(song => {
@@ -554,15 +600,13 @@ export async function POST(request) {
         });
 
         if (matchingSongs.length > 0) {
-          // URUTKAN HASIL FILTER BERDASARKAN PREFERENSI HISTORIS PENGGUNA + JITTER VARIASI ACAK
-          const sorted = sortPersonalized(matchingSongs);
+          const sorted = deduplicateSongs(sortPersonalized(matchingSongs));
           playlistRekomendasi = shuffleArray(sorted.slice(0, 10));
         } else {
-          // Fallback sekunder jika kombinasi sangat spesifik: ambil filter bahasa/genre yang paling relevan
           let fallbackCandidates = allSongs;
           if (wantsEnglish) fallbackCandidates = fallbackCandidates.filter(s => !isIndoGenreOrArtist(s));
           if (wantsIndo) fallbackCandidates = fallbackCandidates.filter(s => isIndoGenreOrArtist(s));
-          playlistRekomendasi = shuffleArray(sortPersonalized(fallbackCandidates).slice(0, 10));
+          playlistRekomendasi = shuffleArray(deduplicateSongs(sortPersonalized(fallbackCandidates)).slice(0, 10));
         }
       } else {
         // PERINTAH UMUM / BEBAS: GUNAKAN GRADASI EMOSI DENGAN VARIABILITAS & SELEKSI DYNAMIC
@@ -579,19 +623,39 @@ export async function POST(request) {
           matchEmotion(s.emotionalCategory, 'senang') || ((s.valence || 0) >= 0.65 && (s.energy || 0) >= 55)
         ));
 
-        playlistRekomendasi = [
-          ...tahap1_validasi.slice(0, 2),
-          ...tahap2_rileks.slice(0, 3),
-          ...tahap3_elevasi.slice(0, 3),
-          ...tahap4_senang.slice(0, 2)
-        ];
+        const usedIds = new Set();
+        const usedKeys = new Set();
+        const p1 = pickUniqueFrom(tahap1_validasi, 2, usedIds, usedKeys);
+        const p2 = pickUniqueFrom(tahap2_rileks, 3, usedIds, usedKeys);
+        const p3 = pickUniqueFrom(tahap3_elevasi, 3, usedIds, usedKeys);
+        const p4 = pickUniqueFrom(tahap4_senang, 2, usedIds, usedKeys);
+
+        playlistRekomendasi = [...p1, ...p2, ...p3, ...p4];
       }
 
+      // Pastikan deduplikasi menyeluruh sebelum penambahan fallback
+      playlistRekomendasi = deduplicateSongs(playlistRekomendasi);
+
       if (playlistRekomendasi.length < 10) {
-        const existingIds = new Set(playlistRekomendasi.map(s => s.id));
-        const fallback = sortPersonalized(allSongs.filter(s => !existingIds.has(s.id)));
-        playlistRekomendasi = [...playlistRekomendasi, ...fallback.slice(0, 10 - playlistRekomendasi.length)];
+        const usedIds = new Set();
+        const usedKeys = new Set();
+        const normalizeStr = (str) => (str || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+        playlistRekomendasi.forEach(s => {
+          if (s) {
+            usedIds.add(String(s.id || `song_${s.no}`));
+            const k = `${normalizeStr(s.title)}:::${normalizeStr(s.artist)}`;
+            if (s.title) usedKeys.add(k);
+          }
+        });
+
+        const fallback = sortPersonalized(allSongs);
+        const additional = pickUniqueFrom(fallback, 10 - playlistRekomendasi.length, usedIds, usedKeys);
+        playlistRekomendasi = [...playlistRekomendasi, ...additional];
       }
+
+      // Garansi akhir 100% tanpa lagu duplikat
+      playlistRekomendasi = deduplicateSongs(playlistRekomendasi);
     }
 
     // -------------------------------------------------------------------------
