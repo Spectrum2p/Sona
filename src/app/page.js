@@ -1298,7 +1298,7 @@ export default function HomePage() {
                 <div className="bg-slate-900 border border-slate-700 p-3 rounded-xl flex items-center justify-between">
                   <span className="text-slate-400 font-medium">Nomor Telepon:</span>
                   <span className="text-emerald-400 font-mono font-bold text-sm bg-emerald-950/80 px-2.5 py-1 rounded-lg border border-emerald-800">
-                    +62 812-3456-7890
+                    +62 895-3672-99070
                   </span>
                 </div>
               </div>
