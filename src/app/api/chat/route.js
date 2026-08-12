@@ -231,15 +231,21 @@ export async function POST(request) {
          - "greeting_or_chitchat": Pengguna baru menyapa ("Halo Sona", "Hai", "Selamat pagi"), menanyakan kabar AI, atau obrolan ringan awal.
          - "curhat_in_progress": Pengguna sedang menceritakan masalah, kejadian hari ini, perasaan, atau beban pikiran, TAPI cerita curhatnya MASIH BERLANJUT / BELUM SELESAI dan pengguna BELUM MINTA playlist/lagu/bantuan mood.
          - "curhat_finished": Cerita curhat pengguna sudah selesai, atau pengguna mengisyaratkan telah lega menceritakan semuanya / menanyakan pendapat AI atas perasaannya.
-         - "request_music": Pengguna MINTA BANTUAN/PETUNJUK UBAH MOOD ("bisa bantu aku untuk mengubah mood ga?", "bisa bantu aku?", "bantu perbaiki moodku", "tolong bantu"), MENJAWAB "IYA", "MAU", "BOLEH", "COBA", "PUTARIN", "AYO" saat ditawari musik, ATAU pengguna dari awal secara eksplisit meminta rekomendasi lagu/playlist/genre tertentu ("kasih aku lagu", "minta lagu").
+         - "request_music": Pengguna EKSPLISIT MEMINTA LAGU/PLAYLIST, ATAU MEMILIH/MENJAWAB MENDENGARKAN MUSIK ("mau dengerin musik", "dengerin musik", "musik", "iya", "mau", "boleh", "coba", "putarin", "ayo", "kasih aku lagu").
          - "end_session": Pengguna mengisyaratkan menyudahi sesi chat ("terima kasih Sona", "selesai", "sampai jumpa", "bye").
 
       2. ATURAN PENANGANAN LULUSAN EMPATI (SANGAT PENTING - ALUR MUSIK KETAT):
-         - JIKA userIntent ADALAH "greeting_or_chitchat" ATAU "curhat_in_progress":
-           * Set "shouldUpdatePlaylist": false.
-           * DALAM "aiResponse", TANGGAPI PENGGUNA SEBAGAI SAHABAT PENDENGAR YANG EMPATIS TERLEBIH DAHULU.
-           * DILARANG KERAS MENYODORKAN PLAYLIST, MENYURUH MENDENGARKAN MUSIK, ATAU MEMBERIKAN DAFTAR LAGU jika pengguna hanya sekadar curhat tanpa minta bantuan mood/lagu!
-           * Dengarkan dengan tulus, validasi perasaannya, dan tanyakan kelanjutan ceritanya dengan hangat.
+         - JIKA PENGGUNA MEMINTA BANTUAN ATAU BERTANYA "bisa bantu aku gaa??" / "bisa bantu biar ga stress?" / "bisa bantu aku?":
+           * BERIKAN BALASAN YANG SANGAT HANGAT, SUPORTIF, DAN AKTIF MENAWARKAN DUA PILIHAN SOLUSI!
+           * DILARANG KERAS HANYA MENJAWAB PASIF "Aku mendengarkanmu...".
+           * CONTOH BALASAN WAJIB / SANGAT DISARANKAN:
+             "Bisa banget... Kamu mau cerita lebih lanjut tentang apa yang bikin kamu stres, atau mau coba dengerin gradasi musik yang kusiapkan buat bantu memperbarui suasana hatimu??"
+           * WAJIB set "shouldUpdatePlaylist": false (JANGAN MUNCULKAN PLAYLIST DULU. AI MENAWARKAN PILIHAN TERLEBIH DAHULU)!
+         - JIKA PENGGUNA LANGSUNG BERCERITA ATAU CURHAT (misal: menceritakan hari, kejadian, rasa capek, sedih, marah, pekerjaan, masalah, tanpa secara eksplisit meminta musik):
+           * DILARANG KERAS MENGEMBALIKAN "shouldUpdatePlaylist": true ATAU MENYODORKAN PLAYLIST/DAFTAR LAGU!
+           * Set "shouldUpdatePlaylist": false dan "userIntent": "curhat_in_progress".
+           * Sona AI WAJIB merespons cerita perasaannya terlebih dahulu dengan empati yang hangat, mendengarkan dengan tulus, dan memvalidasi perasaannya.
+           * HANYA BERIKAN PLAYLIST ("shouldUpdatePlaylist": true) JIKA PENGGUNA SECARA EKSPLISIT MENYATAKAN INGIN MENDENGARKAN MUSIK (contoh: "mau dengerin musik", "putarkan lagu", "dengerin musik aja", "kasih playlist", "iya mau dengerin musik").
          - JIKA userIntent ADALAH "curhat_finished" (CERITA CURHAT SUDAH SELESAI):
            * Set "shouldUpdatePlaylist": false.
            * DALAM "aiResponse", berikan tanggapan & penguatan emosional yang baik dulu atas seluruh cerita pengguna.
@@ -248,7 +254,7 @@ export async function POST(request) {
            * DILARANG LANGSUNG MEMBERIKAN DAFTAR LAGU/PLAYLIST! Tunggu pengguna menjawab "iya" atau "mau".
          - JIKA userIntent ADALAH "request_music" (Pengguna Minta Bantuan Mood, Minta Lagu, "Kasih aku lagu", "Bisa bantu ubah mood?", atau Menjawab "Iya", "Mau", "Boleh", "Putar"):
            * Set "shouldUpdatePlaylist": true.
-           * Sampaikan balasan hangat, empati & antusias bahwa Sona AI telah menyiapkan playlist gradasi lagu khusus untuk membantu meredakan/memperbaiki suasana hatinya.
+           * Sampaikan balasan hangat & aktif menawarkan bantuan: "Bisa banget... Kamu mau cerita lebih lanjut tentang apa yang bikin kamu stres, atau mau coba dengerin gradasi musik yang kusiapkan buat bantu memperbarui suasana hatimu??" jika pengguna meminta bantuan mood/stres.
          - JIKA Pemicu Otomatis Sistem (isAutoTrigger/isSpecialCondition):
            * Set "shouldUpdatePlaylist": true.
 
@@ -292,10 +298,13 @@ export async function POST(request) {
       defaultGreeting = `Halo ${profile.fullName}! Sona AI siap menyajikan gradasi musik personal untuk menemani harimu.`;
     }
 
-    const isMusicOrHelpPattern = /(?:lagu|playlist|musik|putar|rekomendasi|r&b|rnb|english|inggris|iya|mau|boleh|coba|setel|bantu|ubah mood|rubah mood|perbaiki mood|kasih|minta|tolong|solusi)/i;
+    const isMusicPattern = /(?:\b(?:lagu|playlist|musik|gradasi|dengerin|dengar|putarin|setel)\b|\bmau\s+(?:dengerin|dengar|denger|musik|lagu|playlist|gradasi|setel|putar)\b|\b(?:musik|lagu|playlist)\s+aja\b|\b(?:kasih|minta)\s+(?:lagu|musik|playlist)\b|\brekomendasi\s+(?:lagu|musik|playlist)\b|\b(?:r&b|rnb|english|inggris)\b)/i;
+    const isAskingHelpOnly = Boolean(userMessage && /(?:bisa\s+bantu|bantu\s+aku|bisa\s+bantu\s+biar|bisa\s+bantu\s+ga|bantu\s+stres|bantu\s+perbaiki)/i.test(userMessage) && !/(?:lagu|playlist|musik|dengerin|dengar|putar|setel|gradasi)/i.test(userMessage));
+    const isStoryOrCurhatMsg = Boolean(userMessage && /(?:cerita|curhat|kejadia|masalah|pekerjaan|atasan|kantor|sekolah|kuliah|pacar|teman|orang tua|keluarga|capek|pusing|stres|stress|sedih|marah|kecewa|bingung|nangis|ditilang|gaji|hari\s+ini)/i.test(userMessage));
+    const isExplicitMusic = Boolean(userMessage && isMusicPattern.test(userMessage) && !isAskingHelpOnly && !/(?:mau cerita|cerita|curhat|saja cerita|langsung cerita)/i.test(userMessage));
 
     let aiResult = {
-      userIntent: userMessage ? (isMusicOrHelpPattern.test(userMessage) ? "request_music" : "curhat_in_progress") : "greeting_or_chitchat",
+      userIntent: userMessage ? (isExplicitMusic ? "request_music" : "curhat_in_progress") : "greeting_or_chitchat",
       aiResponse: defaultGreeting,
       reasoning: "Analisis awal percakapan dan respon empati.",
       detectedEmotion: (detectedEmotion || 'senang').toLowerCase(),
@@ -303,7 +312,7 @@ export async function POST(request) {
       requestedGenre: "any",
       requestedLanguage: "any",
       requestedVibe: "any",
-      shouldUpdatePlaylist: Boolean(isAutoInitiated || isSpecialCondition || (userMessage && isMusicOrHelpPattern.test(userMessage)))
+      shouldUpdatePlaylist: Boolean(isAutoInitiated || isSpecialCondition || isExplicitMusic)
     };
 
     try {
@@ -343,39 +352,38 @@ export async function POST(request) {
         let fallbackEmpathy = `Aku mendengarkanmu, ${profile.fullName}. Ceritakan lebih banyak tentang apa yang kamu rasakan ya.`;
         let emotion = 'tenang';
 
-        if (/senang|bahagia|gembira|happy|mantap|seru|asik/i.test(msgLower)) {
+        const isHelpOnly = /(?:bisa\s+bantu|bantu\s+aku|bisa\s+bantu\s+biar|bisa\s+bantu\s+ga|bantu\s+stres|bantu\s+perbaiki)/i.test(msgLower) && !/(?:lagu|playlist|musik|dengerin|dengar|putar|setel|gradasi)/i.test(msgLower);
+        const isMusicReq = isMusicPattern.test(msgLower) && !isHelpOnly;
+
+        if (isHelpOnly) {
+          fallbackEmpathy = `Bisa banget, ${profile.fullName}... Kamu mau cerita lebih lanjut tentang apa yang bikin kamu stres, atau mau coba dengerin gradasi musik yang kusiapkan buat bantu memperbarui suasana hatimu??`;
+          emotion = /stres|stress|pusing|sedih|kecewa|galau/i.test(msgLower) ? 'sedih' : 'tenang';
+          aiResult.userIntent = "curhat_in_progress";
+          aiResult.shouldUpdatePlaylist = false;
+        } else if (isMusicReq) {
+          fallbackEmpathy = `Tentu saja, ${profile.fullName}! Ini playlist gradasi musik yang kusiapkan khusus untuk membantu memperbarui suasana hatimu.`;
+          emotion = 'tenang';
+          aiResult.userIntent = "request_music";
+          aiResult.shouldUpdatePlaylist = true;
+        } else if (/senang|bahagia|gembira|happy|mantap|seru|asik/i.test(msgLower)) {
           emotion = 'senang';
-          fallbackEmpathy = isHelpOrMusic
-            ? `Tentu saja, ${profile.fullName}! Ini playlist lagu bersemangat & ceria yang kusiapkan untuk menemani hari bahagiamu.`
-            : `Wah, senang sekali mendengarnya, ${profile.fullName}! 🎉 Kebahagiaanmu menular banget. Apa yang bikin harimu begitu menyenangkan hari ini?`;
+          fallbackEmpathy = `Wah, senang sekali mendengarnya, ${profile.fullName}! 🎉 Kebahagiaanmu menular banget. Apa yang bikin harimu begitu menyenangkan hari ini?`;
+          aiResult.shouldUpdatePlaylist = false;
         } else if (/sedih|duka|kecewa|tangis|nangis|galau|patah/i.test(msgLower)) {
           emotion = 'sedih';
-          fallbackEmpathy = isHelpOrMusic
-            ? `Peluk hangat untukmu, ${profile.fullName}. Aku sudah menyusun playlist gradasi musik lembut & penenang untuk membantu meredakan rasa sedihmu.`
-            : `Peluk hangat untukmu, ${profile.fullName}. Tidak apa-apa merasa sedih. Aku di sini siap mendengarkan seluruh ceritamu kalau kamu mau curhat.`;
+          fallbackEmpathy = `Peluk hangat untukmu, ${profile.fullName}. Tidak apa-apa merasa sedih. Aku di sini siap mendengarkan seluruh ceritamu kalau kamu mau curhat.`;
+          aiResult.shouldUpdatePlaylist = false;
         } else if (/marah|kesal|jengkel|sebel|emosi|benci|gedeg/i.test(msgLower)) {
           emotion = 'marah';
-          fallbackEmpathy = isHelpOrMusic
-            ? `Aku paham rasanya, ${profile.fullName}. Ini playlist musik penenang yang kusiapkan khusus untuk membantumu meredakan emosi.`
-            : `Aku paham rasanya pasti tidak nyaman banget, ${profile.fullName}. Keluarkan saja unek-unekmu di sini, aku siap mendengarkan.`;
-        } else if (/cemas|takut|khawatir|panik|bingung|stres|stress/i.test(msgLower)) {
-          emotion = 'sedih';
-          fallbackEmpathy = isHelpOrMusic
-            ? `Tarik napas perlahan ya, ${profile.fullName}. Aku telah menyiapkan playlist gradasi audio relaksasi untuk membantumu merasa lebih tenang.`
-            : `Tarik napas perlahan ya, ${profile.fullName}. Kamu tidak sendirian. Coba ceritakan apa yang sedang membebani pikiranmu.`;
-        } else if (isHelpOrMusic) {
-          fallbackEmpathy = `Tentu saja, ${profile.fullName}! Aku siap membantumu. Ini playlist gradasi musik yang kusiapkan khusus untuk membantu merilekskan dan memperbaiki suasana hatimu.`;
-          emotion = 'tenang';
+          fallbackEmpathy = `Aku paham rasanya pasti tidak nyaman banget, ${profile.fullName}. Keluarkan saja unek-unekmu di sini, aku siap mendengarkan.`;
+          aiResult.shouldUpdatePlaylist = false;
         } else if (/halo|hai|hey|sore|pagi|malam/i.test(msgLower)) {
           fallbackEmpathy = `Halo ${profile.fullName}! Ada cerita atau perasaan apa yang ingin kamu bagikan denganku hari ini?`;
+          aiResult.shouldUpdatePlaylist = false;
         }
 
         aiResult.aiResponse = fallbackEmpathy;
         aiResult.detectedEmotion = emotion;
-        if (isHelpOrMusic) {
-          aiResult.userIntent = "request_music";
-          aiResult.shouldUpdatePlaylist = true;
-        }
       }
     }
 
@@ -436,11 +444,14 @@ export async function POST(request) {
     const finalEmotion = aiResult.detectedEmotion || detectedEmotion || 'sedih';
     
     // Playlist di-update bila user MINTA REKOMENDASI MUSIK / BANTUAN UBAH MOOD, atau pemicu otomatis/kondisi khusus!
-    const isExplicitMusicOrHelpRequest = userMessage && isMusicOrHelpPattern.test(userMessage);
+    const isAskingHelpOnlyInRoute = userMessage && /(?:bisa\s+bantu|bantu\s+aku|bisa\s+bantu\s+biar|bisa\s+bantu\s+ga|bantu\s+stres|bantu\s+perbaiki)/i.test(userMessage) && !/(?:lagu|playlist|musik|dengerin|dengar|putar|setel|gradasi)/i.test(userMessage);
+    const isDirectStory = Boolean(
+      userMessage && 
+      !isExplicitMusic && 
+      (isStoryOrCurhatMsg || userMessage.length > 25 || aiResult.userIntent === 'curhat_in_progress' || aiResult.userIntent === 'greeting_or_chitchat')
+    );
     const shouldUpdatePlaylist = Boolean(
-      aiResult.shouldUpdatePlaylist || 
-      aiResult.userIntent === 'request_music' || 
-      isExplicitMusicOrHelpRequest || 
+      (!isDirectStory && !isAskingHelpOnlyInRoute && (aiResult.shouldUpdatePlaylist || aiResult.userIntent === 'request_music' || isExplicitMusic)) || 
       isAutoInitiated || 
       isSpecialCondition
     );
