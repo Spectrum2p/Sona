@@ -37,7 +37,8 @@ import {
   Check,
   HeartPulse,
   RefreshCw,
-  Shuffle
+  Shuffle,
+  ChevronDown
 } from 'lucide-react';
 
 export default function HomePage() {
@@ -95,7 +96,24 @@ export default function HomePage() {
 
   // State untuk Sona AI Chat
   const chatBottomRef = useRef(null);
+  const chatContainerRef = useRef(null);
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
   const [chatInput, setChatInput] = useState('');
+
+  const handleChatScroll = () => {
+    if (!chatContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+    const isDistanceToBottom = scrollHeight - scrollTop - clientHeight;
+    if (isDistanceToBottom > 100) {
+      setShowScrollBottom(true);
+    } else {
+      setShowScrollBottom(false);
+    }
+  };
+
+  const scrollToBottom = () => {
+    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
   const [chatMessages, setChatMessages] = useState(() => {
     if (typeof window !== 'undefined') {
       const storedUid = localStorage.getItem('sona_user_id') || 'user_001';
@@ -115,7 +133,7 @@ export default function HomePage() {
   // Auto-scroll ke pesan paling bawah
   useEffect(() => {
     if (activeNavTab === 'chatbot' || chatMessages.length > 0) {
-      chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+      scrollToBottom();
     }
   }, [chatMessages, activeNavTab]);
 
@@ -579,7 +597,7 @@ export default function HomePage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#121212] text-slate-100 flex flex-col font-sans pb-36 select-none">
+    <div className={`bg-[#121212] text-slate-100 flex flex-col font-sans select-none ${activeNavTab === 'chatbot' ? 'h-screen overflow-hidden pb-0' : 'pb-36 min-h-screen'}`}>
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-[#1DB954] text-black text-xs font-bold px-5 py-2.5 rounded-full shadow-2xl animate-bounce flex items-center gap-2">
@@ -1085,12 +1103,14 @@ export default function HomePage() {
       )}
 
       {/* ========================================================= */}
-      {/* 3. TAB CHATBOT (SONA AI) */}
+      {/* 3. TAB CHATBOT (SONA AI) - WHATSAPP STYLE FIXED LAYOUT */}
       {/* ========================================================= */}
       {activeNavTab === 'chatbot' && (
-        <div className="flex-1 max-w-md md:max-w-2xl mx-auto w-full px-3 md:px-4 pt-3 flex flex-col h-[calc(100vh-140px)]">
-          {/* Chat Header */}
-          <div className="p-3 bg-[#181818] border border-slate-800 rounded-t-2xl flex items-center justify-between gap-2 shadow-lg shrink-0">
+        <div className={`flex-1 max-w-md md:max-w-2xl mx-auto w-full px-2 sm:px-4 pt-2 flex flex-col h-full overflow-hidden ${
+          currentSong ? 'pb-[135px]' : 'pb-[70px]'
+        }`}>
+          {/* Chat Header (Paling Atas - Fixed) */}
+          <div className="p-3 bg-[#181818] border border-slate-800 rounded-t-2xl flex items-center justify-between gap-2 shadow-lg shrink-0 z-10">
             <div className="flex items-center gap-2 min-w-0">
               <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow shrink-0">
                 <Bot className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -1125,8 +1145,12 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Chat Messages Body */}
-          <div className="flex-1 p-3 md:p-4 bg-[#121212] border-x border-slate-800/80 overflow-y-auto space-y-3 text-xs min-h-0">
+          {/* Chat Messages Body (Area Tengah - Hanya Bagian Ini yang BISA Di-scroll) */}
+          <div 
+            ref={chatContainerRef}
+            onScroll={handleChatScroll}
+            className="flex-1 p-3 md:p-4 bg-[#121212] border-x border-slate-800/80 overflow-y-auto space-y-3 text-xs min-h-0 relative scrollbar-thin scrollbar-thumb-slate-800"
+          >
             {chatMessages.map((msg, i) => (
               <div
                 key={i}
@@ -1160,10 +1184,21 @@ export default function HomePage() {
               </div>
             ))}
             <div ref={chatBottomRef} />
+
+            {/* Tombol Gulir Langsung Ke Bawah (Clean Circular Button in Corner) */}
+            {showScrollBottom && (
+              <button
+                onClick={scrollToBottom}
+                className="sticky bottom-3 ml-auto mr-1 z-30 w-8 h-8 bg-[#242424]/95 hover:bg-[#333333] text-white border border-slate-700/80 rounded-full shadow-lg transition-all duration-200 flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95"
+                title="Ke pesan terbawah"
+              >
+                <ChevronDown className="w-4 h-4 text-slate-200" />
+              </button>
+            )}
           </div>
 
-          {/* Chat Form Docked (Fixed Bottom) */}
-          <form onSubmit={handleSendChat} className="p-3 bg-[#181818] border border-slate-800 rounded-b-2xl flex gap-2 shrink-0">
+          {/* Chat Form Docked (Paling Bawah - Fixed Input) */}
+          <form onSubmit={handleSendChat} className="p-3 bg-[#181818] border border-slate-800 rounded-b-2xl flex gap-2 shrink-0 z-10 shadow-lg">
             <input
               type="text"
               value={chatInput}
@@ -1298,7 +1333,7 @@ export default function HomePage() {
                 <div className="bg-slate-900 border border-slate-700 p-3 rounded-xl flex items-center justify-between">
                   <span className="text-slate-400 font-medium">Nomor Telepon:</span>
                   <span className="text-emerald-400 font-mono font-bold text-sm bg-emerald-950/80 px-2.5 py-1 rounded-lg border border-emerald-800">
-                    +62 895-3672-99070
+                    +62 812-3456-7890
                   </span>
                 </div>
               </div>
