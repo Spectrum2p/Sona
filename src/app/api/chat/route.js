@@ -226,6 +226,13 @@ export async function POST(request) {
       4. PENOLAKAN DICHAT (ABSOLUTE FILTER):
          Lagu, artis, atau genre yang dilarang pengguna HARUS dihapus total dan DILARANG KERAS disarankan dalam balasan chat.
 
+      5. DETEKSI MASALAH PSIKOLOGIS BERAT / KRISIS MENTAL & SARAN HELP CENTER (PENTING):
+         Jika pengguna terdeteksi mengalami masalah psikologis yang cukup/sangat berat, depresi dalam, trauma berat, krisis emosional ekstrem, putus asa berat, atau ada indikasi menyakiti diri / mengakhiri hidup:
+         - Sona AI WAJIB merespons dengan empati yang sangat mendalam, hangat, tenang, dan suportif.
+         - Sona AI WAJIB EKSPLISIT menyarankan pengguna untuk menggunakan fitur Help Center atau menghubungi hotline/bantuan psikolog profesional.
+         - Sertakan kalimat arahan seperti: "Beban yang kamu rasakan saat ini mungkin terasa sangat berat. Tolong gunakan fitur Help Center di Sona AI untuk melihat kontak bantuan dan hotline profesional. Kamu tidak harus menanggung ini sendirian."
+         - WAJIB set "isSevereDistress": true dan "suggestHelpCenter": true dalam JSON output.
+
       1. KLASIFIKASI NIAT PENGGUNA (userIntent):
          Analisis pesan pengguna dengan kecerdasan semantikmu secara fleksibel:
          - "greeting_or_chitchat": Pengguna baru menyapa ("Halo Sona", "Hai", "Selamat pagi"), menanyakan kabar AI, atau obrolan ringan awal.
@@ -384,6 +391,25 @@ export async function POST(request) {
 
         aiResult.aiResponse = fallbackEmpathy;
         aiResult.detectedEmotion = emotion;
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // 🎯 4b. DETEKSI EMBEDDED SEVERE DISTRESS / MASALAH PSIKOLOGIS BERAT
+    // -------------------------------------------------------------------------
+    const severeDistressRegex = /(?:bunuh\s*diri|akhiri\s*hidup|nyakiti\s*diri|menyakiti\s*diri|potong\s*urat|depresi\s*berat|trauma\s*berat|takut\s*gila|mati\s*aja|mau\s*mati|ingin\s*mati|ga\s*kuat\s*hidup|gak\s*kuat\s*hidup|tidak\s*kuat\s*hidup|putus\s*asa\s*berat|self\s*harm|krisis\s*mental|gangguan\s*jiwa\s*berat|pengen\s*mati|pengin\s*mati|ingin\s*akhiri\s*hidup|beban\s*hidup\s*terlalu\s*berat|rasa\s*ingin\s*mati|masalah\s*psikologis|butuh\s*bantuan\s*psikolog|butuh\s*psikolog|butuh\s*psikiater|gangguan\s*mental\s*berat|krisis\s*psikologis)/i;
+
+    const isSevereDistressDetected = Boolean(
+      aiResult.isSevereDistress || 
+      aiResult.suggestHelpCenter || 
+      (userMessage && severeDistressRegex.test(userMessage))
+    );
+
+    if (isSevereDistressDetected) {
+      aiResult.isSevereDistress = true;
+      aiResult.suggestHelpCenter = true;
+      if (aiResult.aiResponse && !/help\s*center|hotline|psikolog|profesional/i.test(aiResult.aiResponse)) {
+        aiResult.aiResponse += `\n\n💡 *Sona AI menyarankan: Jika kamu merasa beban emosional atau masalah psikologis yang kamu alami terasa sangat berat, tolong gunakan fitur Help Center di bawah ini untuk melihat kontak hotline & bantuan profesional. Kamu tidak sendiri.*`;
       }
     }
 
@@ -691,6 +717,8 @@ export async function POST(request) {
       analisisIlmiah: aiResult.reasoning,
       detectedEmotion: finalEmotion,
       shouldUpdatePlaylist,
+      isSevereDistress: Boolean(aiResult.isSevereDistress || isSevereDistressDetected),
+      suggestHelpCenter: Boolean(aiResult.suggestHelpCenter || isSevereDistressDetected),
       playlist: playlistRekomendasi
     });
 
