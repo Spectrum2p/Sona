@@ -438,6 +438,9 @@ export default function HomePage() {
   const sendDirectChatMessage = async (userText) => {
     if (!userText || !userText.trim()) return;
 
+    const severeDistressClientRegex = /(?:bunuh\s*diri|akhiri\s*hidup|nyakiti\s*diri|menyakiti\s*diri|potong\s*urat|depresi\s*berat|trauma\s*berat|takut\s*gila|mati\s*aja|mau\s*mati|ingin\s*mati|ga\s*kuat\s*hidup|gak\s*kuat\s*hidup|tidak\s*kuat\s*hidup|putus\s*asa\s*berat|self\s*harm|krisis\s*mental|gangguan\s*jiwa\s*berat|pengen\s*mati|pengin\s*mati|ingin\s*akhiri\s*hidup|beban\s*hidup\s*terlalu\s*berat|rasa\s*ingin\s*mati|masalah\s*psikologis|butuh\s*bantuan\s*psikolog|butuh\s*psikolog|butuh\s*psikiater|gangguan\s*mental\s*berat|krisis\s*psikologis)/i;
+    const isClientSevere = severeDistressClientRegex.test(userText);
+
     setChatMessages(prev => [
       ...prev, 
       { sender: 'user', text: userText },
@@ -457,6 +460,7 @@ export default function HomePage() {
       const data = await res.json();
 
       if (data.success) {
+        const isSevere = Boolean(data.suggestHelpCenter || data.isSevereDistress || isClientSevere);
         setChatMessages(prev => {
           const filtered = prev.filter(m => !m.isLoading);
           return [
@@ -466,12 +470,16 @@ export default function HomePage() {
               text: data.sapaanAI || data.message,
               detectedEmotion: data.detectedEmotion,
               playlist: data.playlist,
-              shouldUpdatePlaylist: data.shouldUpdatePlaylist
+              shouldUpdatePlaylist: data.shouldUpdatePlaylist,
+              suggestHelpCenter: isSevere,
+              isSevereDistress: isSevere
             }
           ];
         });
 
-        if (data.shouldUpdatePlaylist && data.playlist && data.playlist.length > 0) {
+        if (isSevere) {
+          showToast(`⚠️ Sona AI menyarankan membuka Help Center untuk bantuan profesional.`);
+        } else if (data.shouldUpdatePlaylist && data.playlist && data.playlist.length > 0) {
           setSongs(data.playlist);
           setPlaylist(data.playlist);
           showToast(`🎵 Gradasi musik dimuat!`);
@@ -483,7 +491,15 @@ export default function HomePage() {
       console.error("Gagal kirim chat:", err);
       setChatMessages(prev => {
         const filtered = prev.filter(m => !m.isLoading);
-        return [...filtered, { sender: 'ai', text: 'Maaf, terjadi kendala koneksi ke Sona AI. Tetap nikmati musik yang ada ya!' }];
+        return [
+          ...filtered, 
+          { 
+            sender: 'ai', 
+            text: 'Maaf, terjadi kendala koneksi ke Sona AI. Jika kamu sedang mengalami krisis emosional atau masalah psikologis berat, kamu bisa menggunakan fitur Help Center.',
+            suggestHelpCenter: isClientSevere,
+            isSevereDistress: isClientSevere
+          }
+        ];
       });
     }
   };
@@ -1165,6 +1181,26 @@ export default function HomePage() {
                 >
                   <p className="whitespace-pre-line">{msg.text}</p>
 
+                  {/* Tombol Rekomendasi Help Center saat terdeteksi Masalah Psikologis Berat */}
+                  {msg.sender === 'ai' && (msg.suggestHelpCenter || msg.isSevereDistress || /help\s*center|hotline/i.test(msg.text || '')) && (
+                    <div className="mt-3 p-3 bg-rose-950/80 border border-rose-500/60 rounded-xl space-y-2 text-rose-100 shadow-lg animate-fade-in">
+                      <div className="flex items-center gap-1.5 font-bold text-xs text-rose-300">
+                        <LifeBuoy className="w-4 h-4 text-rose-400 animate-pulse shrink-0" />
+                        <span>Dukungan Kesehatan Mental &amp; Help Center</span>
+                      </div>
+                      <p className="text-[11px] text-rose-200/90 leading-relaxed">
+                        Sona AI mendeteksi kamu sedang melalui momen yang sangat berat. Kamu tidak sendirian. Silakan buka Help Center untuk terhubung dengan hotline bantuan &amp; konseling profesional.
+                      </p>
+                      <button
+                        onClick={() => setIsHelpCenterOpen(true)}
+                        className="w-full py-2.5 px-3 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white font-bold text-xs rounded-xl transition shadow-md flex items-center justify-center gap-2 border border-rose-400/40 cursor-pointer active:scale-98"
+                      >
+                        <LifeBuoy className="w-4 h-4 text-rose-100" />
+                        <span>Buka Help Center &amp; Hotline Bantuan</span>
+                      </button>
+                    </div>
+                  )}
+
                   {/* Tombol Muat Gradasi Musik */}
                   {msg.sender === 'ai' && msg.playlist && msg.playlist.length > 0 && (
                     <button
@@ -1321,14 +1357,14 @@ export default function HomePage() {
             </div>
 
             <div className="space-y-3 text-xs text-slate-300 leading-relaxed">
-              <p className="text-slate-400">
-                Jika kamu memerlukan bantuan atau dukungan lebih lanjut, silakan hubungi kontak bantuan di bawah ini:
+              <p className="text-slate-300 font-medium">
+                Sona AI hadir untuk menemani aktivitas musikmu. Namun jika kamu mengalami krisis emosional, kecemasan tinggi, atau beban psikologis yang berat, sangat disarankan untuk berbicara dengan konselor atau profesional.
               </p>
 
-              <div className="p-4 bg-[#222] border border-slate-800 rounded-2xl space-y-2">
+              <div className="p-4 bg-[#222] border border-slate-800 rounded-2xl space-y-3">
                 <div className="flex items-center gap-2 font-bold text-white text-sm">
                   <PhoneCall className="w-4 h-4 text-emerald-400" />
-                  <span>Kontak Bantuan / Hotline</span>
+                  <span>Kontak Utama Help Center / Hotline</span>
                 </div>
                 <div className="bg-slate-900 border border-slate-700 p-3 rounded-xl flex items-center justify-between">
                   <span className="text-slate-400 font-medium">Nomor Telepon:</span>
@@ -1336,6 +1372,39 @@ export default function HomePage() {
                     +62 895-3672-99070
                   </span>
                 </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <a
+                    href="tel:+62895367299070"
+                    className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition shadow flex items-center justify-center gap-1.5"
+                  >
+                    <PhoneCall className="w-3.5 h-3.5" /> Panggil Telepon
+                  </a>
+                  <a
+                    href="https://wa.me/62895367299070"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="py-2.5 px-3 bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl transition shadow flex items-center justify-center gap-1.5"
+                  >
+                    💬 WhatsApp
+                  </a>
+                </div>
+              </div>
+
+              <div className="p-3.5 bg-rose-950/40 border border-rose-900/60 rounded-2xl space-y-2">
+                <h4 className="font-bold text-rose-300 flex items-center gap-1.5 text-xs">
+                  <ShieldCheck className="w-4 h-4 text-rose-400" /> Layanan Bantuan Darurat Lainnya (Indonesia)
+                </h4>
+                <ul className="space-y-1.5 text-[11px] text-slate-300">
+                  <li className="flex justify-between items-center bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+                    <span>Layanan Sehat Jiwa Kemenkes</span>
+                    <span className="font-mono font-bold text-emerald-400">119 (Ext 8)</span>
+                  </li>
+                  <li className="flex justify-between items-center bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+                    <span>Krisis &amp; Pencegahan Bunuh Diri</span>
+                    <span className="font-mono font-bold text-emerald-400">112</span>
+                  </li>
+                </ul>
               </div>
             </div>
 
